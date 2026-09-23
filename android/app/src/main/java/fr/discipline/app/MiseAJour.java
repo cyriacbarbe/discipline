@@ -21,8 +21,8 @@ final class MiseAJour {
     private MiseAJour() {
     }
 
-    /** Le lien de l'APK si une version plus récente est publiée, sinon null. À appeler hors du fil principal. */
-    static String lienSiDisponible() throws Exception {
+    /** {nom de la version, lien de l'APK} si une version plus récente est publiée, sinon null. À appeler hors du fil principal. */
+    static String[] miseAJourSiDisponible() throws Exception {
         HttpURLConnection connexion = (HttpURLConnection) new URL(URL_DERNIERE_RELEASE).openConnection();
         connexion.setConnectTimeout(8000);
         connexion.setReadTimeout(8000);
@@ -42,7 +42,8 @@ final class MiseAJour {
             for (int i = 0; i < pieces.length(); i++) {
                 JSONObject piece = pieces.getJSONObject(i);
                 if (piece.getString("name").endsWith(".apk")) {
-                    return piece.getString("browser_download_url");
+                    return new String[]{release.optString("name", release.getString("tag_name")),
+                            piece.getString("browser_download_url")};
                 }
             }
             return null;

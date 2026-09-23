@@ -19,8 +19,8 @@ android {
         applicationId 'fr.discipline.app'
         minSdk 26
         targetSdk 34
-        versionCode 3
-        versionName '0.3'
+        versionCode 4
+        versionName '0.4'
     }
 
     buildFeatures {
@@ -44,6 +44,13 @@ android {
             if (fichierSignature.exists()) {
                 signingConfig signingConfigs.discipline
             }
+        }
+    }
+
+    // APK nommé par version (discipline-0.4.apk) : le nom change à chaque mise à jour
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "discipline-${variant.versionName}.apk"
         }
     }
 

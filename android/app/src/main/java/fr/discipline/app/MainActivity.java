@@ -1,6 +1,7 @@
 package fr.discipline.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.net.Uri;
@@ -19,6 +20,7 @@ public class MainActivity extends Activity {
 
     private Regles regles;
     private View en;
+    private boolean popupMajAffichee;
     private TextView etatService;
     private TextView etatUtilisation;
     private Button boutonDebut;
@@ -73,12 +75,25 @@ public class MainActivity extends Activity {
         Button bouton = en.findViewById(R.id.bouton_mise_a_jour);
         new Thread(() -> {
             try {
-                String lien = MiseAJour.lienSiDisponible();
-                if (lien != null) {
+                String[] maj = MiseAJour.miseAJourSiDisponible();
+                if (maj != null) {
+                    String nom = maj[0];
+                    String lien = maj[1];
                     runOnUiThread(() -> {
-                        bouton.setOnClickListener(v ->
-                                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(lien))));
+                        Runnable telecharger = () ->
+                                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(lien)));
+                        bouton.setText(getString(R.string.telecharger_mise_a_jour_format, nom));
+                        bouton.setOnClickListener(v -> telecharger.run());
                         bouton.setVisibility(View.VISIBLE);
+                        if (!popupMajAffichee && !isFinishing()) {
+                            popupMajAffichee = true;
+                            new AlertDialog.Builder(this)
+                                    .setTitle(R.string.mise_a_jour_titre)
+                                    .setMessage(getString(R.string.mise_a_jour_message, nom))
+                                    .setPositiveButton(R.string.telecharger_court, (d, w) -> telecharger.run())
+                                    .setNegativeButton(R.string.plus_tard, null)
+                                    .show();
+                        }
                     });
                 }
             } catch (Exception e) {

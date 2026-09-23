@@ -25,6 +25,9 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   version : monter `versionCode`/`versionName` dans `app/build.gradle`,
   `./gradlew assembleRelease`, puis publier une Release `v<versionCode>` avec
   `app-release.apk`. Commiter toujours après chaque changement.
+- À l'ouverture, une popup « Mise à jour disponible » (+ gros bouton vert en
+  haut) propose le téléchargement ; l'APK et la Release portent la version dans
+  leur nom (`discipline-0.4.apk`, « Discipline 0.4 »), jamais un nom fixe.
 - Clé : `android/discipline.jks` + `signature.properties`, hors Git — à
   sauvegarder ailleurs, la perdre oblige à désinstaller l'appli.
 

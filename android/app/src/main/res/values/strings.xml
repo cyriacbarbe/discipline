@@ -64,4 +64,9 @@ Touche ici pour la télécharger</string>
     <string name="titre_creneau">Créneau horaire global</string>
     <string name="creneau_explication">Les applis cochées ci-dessous ne sont bloquées que pendant ce créneau (ex. de 22:00 à 07:00). Désactivé : elles sont bloquées en permanence.</string>
     <string name="applications_explication">Coche pour bloquer. Touche ⚙ pour régler une appli (créneau, quota, session).</string>
+    <string name="telecharger_mise_a_jour_format">⬇ Mise à jour disponible : %1$s\nTouche ici pour la télécharger</string>
+    <string name="mise_a_jour_titre">Mise à jour disponible</string>
+    <string name="mise_a_jour_message">%1$s est prête. Télécharge-la puis ouvre le fichier pour l’installer par-dessus : tes réglages sont conservés.</string>
+    <string name="telecharger_court">Télécharger</string>
+    <string name="plus_tard">Plus tard</string>
 </resources>
