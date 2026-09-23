@@ -45,6 +45,11 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   (déclaré dans `<queries>` du Manifest, pas besoin de la permission
   QUERY_ALL_PACKAGES).
 
+## À lire avant d'y toucher
+
+- [docs/CAHIER_DES_CHARGES.md](docs/CAHIER_DES_CHARGES.md) — refonte v1
+  décidée le 24/09/2026 (moteur de limites, accueil, stats), à livrer d'un coup.
+
 ## Fait (codé, tests sur téléphone en cours)
 
 - Blocage par liste + créneau global, sessions limitées, quotas par appli,
