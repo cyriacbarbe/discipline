@@ -11,4 +11,42 @@
     <string name="message_blocage">%1$s est bloquée en ce moment.</string>
     <string name="debut_format">Début : %1$s</string>
     <string name="fin_format">Fin : %1$s</string>
+
+    <string name="reglages_symbole">⚙</string>
+    <string name="bloquee">Bloquée</string>
+    <string name="creneau_label">Créneau horaire</string>
+    <string name="creneau_suivre_global">Suivre le réglage global</string>
+    <string name="creneau_personnalise">Créneau personnalisé</string>
+    <string name="creneau_aucun">Toujours bloquée (aucun créneau)</string>
+    <string name="quota_label">Quota quotidien (minutes)</string>
+    <string name="quota_hint">Aucun quota</string>
+    <string name="utilisable_en_session">Utilisable en session</string>
+
+    <string name="bouton_sessions">Sessions</string>
+    <string name="session_max_label">Sessions par jour</string>
+    <string name="session_duree_label">Durée d\'une session (minutes)</string>
+    <string name="sessions_restantes_format">Sessions restantes aujourd\'hui : %1$d / %2$d</string>
+    <string name="applis_session_titre">Applications utilisables en session</string>
+    <string name="applis_session_format">%1$s</string>
+    <string name="aucune">aucune</string>
+    <string name="demarrer_session_format">Démarrer une session (%1$d restante(s) aujourd\'hui)</string>
+
+    <string name="bouton_nfc">Badges NFC</string>
+    <string name="nfc_enregistrer_badge">Enregistrer un nouveau badge</string>
+    <string name="nfc_approcher_badge">Approchez le badge à enregistrer…</string>
+    <string name="nfc_indisponible">Cet appareil ne dispose pas de puce NFC.</string>
+    <string name="nfc_badges_enregistres">Badges enregistrés (toucher pour modifier, rester appuyé pour supprimer)</string>
+    <string name="nfc_ligne_tag_format">%1$s — %2$d application(s)</string>
+    <string name="nfc_deblocage_reussi">%1$s : %2$d application(s) débloquée(s)</string>
+    <string name="nfc_badge_inconnu">Badge inconnu. Enregistrez-le depuis l\'écran Badges NFC.</string>
+    <string name="nfc_confirmer_suppression">Supprimer le badge « %1$s » ?</string>
+    <string name="nfc_nom_hint">Nom du badge (ex. Cuisine)</string>
+    <string name="nfc_choisir_applis">Applications à débloquer avec ce badge</string>
+    <string name="oui">Oui</string>
+    <string name="non">Non</string>
+    <string name="enregistrer">Enregistrer</string>
+
+    <string name="acces_utilisation_actif">Accès à l\'utilisation accordé</string>
+    <string name="acces_utilisation_inactif">Accès à l\'utilisation non accordé — nécessaire pour les quotas</string>
+    <string name="autoriser_utilisation">Autoriser l\'accès à l\'utilisation</string>
 </resources>

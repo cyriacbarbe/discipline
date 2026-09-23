@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/champ_nom_tag"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/nfc_nom_hint" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/nfc_choisir_applis"
+        android:textStyle="bold"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp" />
+
+    <ListView
+        android:id="@+id/liste_applis_tag"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <Button
+        android:id="@+id/bouton_enregistrer_tag"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/enregistrer"
+        android:layout_marginTop="8dp" />
+
+</LinearLayout>

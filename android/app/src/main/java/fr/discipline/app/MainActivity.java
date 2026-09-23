@@ -3,8 +3,6 @@ package fr.discipline.app;
 import android.app.Activity;
 import android.app.TimePickerDialog;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -13,16 +11,13 @@ import android.widget.ListView;
 import android.widget.Switch;
 import android.widget.TextView;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
 
     private Regles regles;
     private TextView etatService;
+    private TextView etatUtilisation;
     private Button boutonDebut;
     private Button boutonFin;
 
@@ -36,6 +31,15 @@ public class MainActivity extends Activity {
         etatService = findViewById(R.id.etat_service);
         findViewById(R.id.bouton_activer_service).setOnClickListener(v ->
                 startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+
+        etatUtilisation = findViewById(R.id.etat_utilisation);
+        findViewById(R.id.bouton_autoriser_utilisation).setOnClickListener(v ->
+                startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
+
+        findViewById(R.id.bouton_sessions).setOnClickListener(v ->
+                startActivity(new Intent(this, SessionsActivity.class)));
+        findViewById(R.id.bouton_nfc).setOnClickListener(v ->
+                startActivity(new Intent(this, NfcActivity.class)));
 
         Switch interrupteurCreneau = findViewById(R.id.interrupteur_creneau);
         interrupteurCreneau.setChecked(regles.isCreneauActif());
@@ -51,14 +55,16 @@ public class MainActivity extends Activity {
         rafraichirBoutonsCreneau();
 
         ListView listeApplications = findViewById(R.id.liste_applications);
-        listeApplications.setAdapter(new ListeApplicationsAdapter(this, applicationsInstallees(), regles));
+        listeApplications.setAdapter(new ListeApplicationsAdapter(this,
+                Applications.installees(getPackageManager(), getPackageName()), regles));
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        boolean actif = serviceAccessibiliteActif();
-        etatService.setText(actif ? R.string.service_actif : R.string.service_inactif);
+        etatService.setText(serviceAccessibiliteActif() ? R.string.service_actif : R.string.service_inactif);
+        etatUtilisation.setText(new Usage(this).permissionAccordee()
+                ? R.string.acces_utilisation_actif : R.string.acces_utilisation_inactif);
     }
 
     private void choisirHeure(boolean debut) {
@@ -81,24 +87,6 @@ public class MainActivity extends Activity {
 
     private static String formatHeure(int minutes) {
         return String.format(Locale.FRANCE, "%02d:%02d", minutes / 60, minutes % 60);
-    }
-
-    private List<AppInfo> applicationsInstallees() {
-        PackageManager pm = getPackageManager();
-        Intent intentLanceurs = new Intent(Intent.ACTION_MAIN);
-        intentLanceurs.addCategory(Intent.CATEGORY_LAUNCHER);
-
-        List<ResolveInfo> resolus = pm.queryIntentActivities(intentLanceurs, 0);
-        List<AppInfo> applis = new ArrayList<>();
-        for (ResolveInfo resolu : resolus) {
-            String paquet = resolu.activityInfo.packageName;
-            if (paquet.equals(getPackageName())) {
-                continue;
-            }
-            applis.add(new AppInfo(paquet, resolu.loadLabel(pm).toString()));
-        }
-        Collections.sort(applis, Comparator.comparing(a -> a.nom.toLowerCase(Locale.FRANCE)));
-        return applis;
     }
 
     private boolean serviceAccessibiliteActif() {

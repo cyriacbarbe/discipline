@@ -18,6 +18,41 @@
         android:layout_height="wrap_content"
         android:text="@string/activer_service" />
 
+    <TextView
+        android:id="@+id/etat_utilisation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp" />
+
+    <Button
+        android:id="@+id/bouton_autoriser_utilisation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/autoriser_utilisation" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingTop="16dp">
+
+        <Button
+            android:id="@+id/bouton_sessions"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="@string/bouton_sessions" />
+
+        <Button
+            android:id="@+id/bouton_nfc"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="@string/bouton_nfc" />
+    </LinearLayout>
+
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
