@@ -21,6 +21,16 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   le jour où l'appli doit se mettre à jour proprement sans tout réinstaller
   (voir comment `cyranss/android` le fait, même mécanique si besoin).
 
+## Mises à jour (bouton « Télécharger la mise à jour »)
+
+- `MiseAJour.java` lit la dernière Release de `cyriacbarbe/discipline` sur
+  GitHub : balise `v<versionCode>` + APK signé en pièce jointe. À chaque
+  version : monter `versionCode`/`versionName` dans `app/build.gradle`,
+  `./gradlew assembleRelease`, puis publier une Release `v<versionCode>` avec
+  `app-release.apk`. Commiter toujours après chaque changement.
+- Clé : `android/discipline.jks` + `signature.properties`, hors Git — à
+  sauvegarder ailleurs, la perdre oblige à désinstaller l'appli.
+
 ## Comment ça bloque
 
 - `BlocageAccessibilityService` : un service d'accessibilité (à activer à la
