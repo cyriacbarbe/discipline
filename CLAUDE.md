@@ -33,24 +33,21 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
 
 ## Comment ça bloque
 
-- `BlocageAccessibilityService` : un service d'accessibilité (à activer à la
-  main dans Réglages > Accessibilité, Android ne permet pas de l'activer par
-  code) qui regarde quelle application passe au premier plan. Si elle est
-  dans la liste bloquée et dans le créneau configuré, il renvoie à l'accueil
-  et ouvre `BlocageActivity`.
-- `Regles` : les règles en SharedPreferences (liste des applications
-  bloquées, créneau horaire optionnel). Un seul créneau global pour
-  l'instant, pas encore par application.
-- Liste des applications : lue par `MainActivity` via `queryIntentActivities`
-  (déclaré dans `<queries>` du Manifest, pas besoin de la permission
-  QUERY_ALL_PACKAGES).
+- `BlocageAccessibilityService` (à activer à la main dans Accessibilité) :
+  suit l'appli au premier plan, tient le `Journal` (temps réel par appli),
+  demande toutes les 2 s au `Moteur` si une `Limite` bloque, puis ferme,
+  ouvre une autre appli ou montre `BlocageActivity` ; affiche les bulles.
+- `Donnees` : tout le réglage en un JSON (SharedPreferences `discipline_v1`).
+  Un changement qui assouplit passe par `Ecran.garde` (anti-triche).
+- Interface construite en Java (`Ui`, `Ecran`, `Choix`), pas de XML de mise
+  en page ; thème sombre.
 
 ## À lire avant d'y toucher
 
 - [docs/CAHIER_DES_CHARGES.md](docs/CAHIER_DES_CHARGES.md) — refonte v1
-  décidée le 24/09/2026 (moteur de limites, accueil, stats), à livrer d'un coup.
+  (moteur de limites, accueil, stats) et, en fin de fichier, ses écarts.
 
 ## Fait (codé, tests sur téléphone en cours)
 
-- Blocage par liste + créneau global, sessions limitées, quotas par appli,
-  badges NFC, créneaux par application. Release v2 publiée.
+- v1.0 : refonte complète du cahier des charges (9 types de limites, ET/OU,
+  exceptions, groupes, profils, vacances, anti-triche, stats).

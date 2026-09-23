@@ -85,3 +85,25 @@ fait avec ET.
 ## Hors périmètre (plus tard)
 
 - Blocage des sites web dans les navigateurs, à faire avec la connexion au PC.
+
+## Livré en v1.0 (24/09/2026) — écarts et simplifications
+
+- **Mesure du temps** : l'appli tient son propre journal (`files/journal.txt`,
+  35 jours) à partir du service d'accessibilité ; la permission « accès à
+  l'utilisation » n'est plus demandée.
+- **Bulles** : affichées par le service d'accessibilité
+  (`TYPE_ACCESSIBILITY_OVERLAY`), sans permission de superposition.
+- **Anti-triche** : toute modification, désactivation ou suppression d'une
+  limite *active* compte comme un assouplissement (pas de comparaison fine
+  des réglages) ; créer ou activer est immédiat. Idem pour retirer des applis
+  d'un groupe utilisé, passer à un profil qui éteint des limites, partir en
+  vacances, relâcher l'anti-triche. Administrateur de l'appareil : pas encore.
+- **NFC** : n'importe quel badge enregistré débloque toutes les règles
+  « badge NFC » (pas de badge attitré par règle).
+- **Rallonge** : suspend toute la limite pendant X min.
+- **Nouvelle appli installée** : proposée dans une carte de l'accueil
+  (« Ajouter à un groupe »), au prochain passage sur l'accueil.
+- **Comparaison de l'accueil** : aujourd'hui face à la moyenne par jour des
+  7 jours précédents.
+- **Friction et badge** passent toujours par l'écran de blocage, quelle que
+  soit l'action choisie.

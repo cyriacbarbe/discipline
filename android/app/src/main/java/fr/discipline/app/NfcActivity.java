@@ -1,142 +1,134 @@
 package fr.discipline.app;
 
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.PendingIntent;
 import android.content.Intent;
 import android.nfc.NfcAdapter;
-import android.nfc.Tag;
 import android.os.Bundle;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.ListView;
-import android.widget.TextView;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 
-public class NfcActivity extends Activity {
-
-    private NfcAdapter nfcAdapter;
-    private Regles regles;
-    private TextView texteEtat;
-    private ListView listeTags;
-    private List<String> tagIdsAffiches = new ArrayList<>();
-    private boolean enAttenteDEnregistrement;
+/**
+ * Badges NFC : les enregistrer et les nommer. Ouverte par un bip hors de
+ * l'appli, elle débloque les limites « badge NFC » puis se referme.
+ */
+public class NfcActivity extends Ecran {
+    private boolean enregistrement;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_nfc);
-
-        regles = new Regles(this);
-        nfcAdapter = NfcAdapter.getDefaultAdapter(this);
-
-        texteEtat = findViewById(R.id.texte_etat_nfc);
-        listeTags = findViewById(R.id.liste_tags_nfc);
-
-        Button boutonEnregistrer = findViewById(R.id.bouton_enregistrer_badge);
-        boutonEnregistrer.setOnClickListener(v -> {
-            enAttenteDEnregistrement = true;
-            texteEtat.setText(R.string.nfc_approcher_badge);
-        });
-
-        traiterIntentEventuel(getIntent());
+    protected void onCreate(Bundle etat) {
+        super.onCreate(etat);
+        String id = idBadge(getIntent());
+        if (id != null) {
+            if (donnees.badges.containsKey(id)) {
+                int n = donnees.debloquerParBadge(System.currentTimeMillis());
+                Toast.makeText(this, n > 0 ? "🔓 « " + donnees.badges.get(id) + " » : " + n + " limite(s) débloquée(s)"
+                        : "Aucune limite à débloquer par badge.", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Badge inconnu.", Toast.LENGTH_LONG).show();
+            }
+            finish();
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        rafraichirEtatEtListe();
-        if (nfcAdapter != null) {
-            Intent intent = new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-            nfcAdapter.enableForegroundDispatch(this, pendingIntent, null, null);
+        rafraichir();
+    }
+
+    @Override
+    protected boolean ecouteNfc() {
+        return true;
+    }
+
+    @Override
+    protected void rafraichir() {
+        if (isFinishing()) {
+            return;
+        }
+        LinearLayout c = page("Badges NFC", true);
+        if (NfcAdapter.getDefaultAdapter(this) == null) {
+            Ui.ajouter(c, Ui.texte(this, "Ce téléphone n’a pas de NFC.", 15, Ui.ORANGE, false), 12);
+        }
+        Ui.ajouter(c, Ui.petit(this, "Un badge enregistré débloque les limites « Badge NFC », "
+                + "et sert de clé quand l’anti-triche l’exige."), 8);
+        for (Map.Entry<String, String> b : new ArrayList<>(donnees.badges.entrySet())) {
+            LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 10);
+            LinearLayout r = Ui.rangee(this);
+            carte.addView(r);
+            LinearLayout textes = Ui.etirer(r, Ui.colonne(this));
+            textes.addView(Ui.texte(this, b.getValue(), 17, Ui.TEXTE, true));
+            textes.addView(Ui.petit(this, b.getKey()));
+            r.addView(Ui.croix(this, v -> supprimer(b.getKey())));
+            carte.setOnClickListener(v -> Choix.texte(this, "Nom du badge", b.getValue(), "", t -> {
+                if (!t.isEmpty()) {
+                    donnees.badges.put(b.getKey(), t);
+                    donnees.enregistrer();
+                }
+                rafraichir();
+            }));
+        }
+        if (enregistrement) {
+            LinearLayout attente = Ui.ajouter(c, Ui.carte(this), 16);
+            attente.addView(Ui.texte(this, "📶 Approche le badge du téléphone…", 17, Ui.VERT, true));
+            Ui.ajouter(attente, Ui.boutonDiscret(this, "Annuler"), 10).setOnClickListener(v -> {
+                enregistrement = false;
+                rafraichir();
+            });
+        } else {
+            boutonBas(c, "＋ Enregistrer un badge", v -> {
+                enregistrement = true;
+                rafraichir();
+            });
+        }
+    }
+
+    private void supprimer(String id) {
+        Runnable suite = () -> {
+            donnees.badges.remove(id);
+            if (donnees.badges.isEmpty()) {
+                donnees.nfcPourModifier = false;
+            }
+            donnees.enregistrer();
+            rafraichir();
+        };
+        if (donnees.nfcPourModifier) {
+            demanderBadge("L’anti-triche demande le badge pour en retirer un.", suite);
+        } else {
+            suite.run();
         }
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-        if (nfcAdapter != null) {
-            nfcAdapter.disableForegroundDispatch(this);
+    protected void badgeLu(String id) {
+        if (!enregistrement) {
+            if (donnees.badges.containsKey(id)) {
+                int n = donnees.debloquerParBadge(System.currentTimeMillis());
+                toast("🔓 " + n + " limite(s) débloquée(s).");
+            } else {
+                toast("Badge inconnu : touche « Enregistrer un badge » d’abord.");
+            }
+            return;
         }
+        enregistrement = false;
+        if (donnees.badges.containsKey(id)) {
+            toast("Ce badge est déjà enregistré.");
+            rafraichir();
+            return;
+        }
+        Choix.texte(this, "Nom du badge", "Badge " + (donnees.badges.size() + 1), "", t -> {
+            donnees.badges.put(id, t.isEmpty() ? "Badge" : t);
+            donnees.enregistrer();
+            rafraichir();
+        });
+        rafraichir();
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
         setIntent(intent);
-        traiterIntentEventuel(intent);
-    }
-
-    private void traiterIntentEventuel(Intent intent) {
-        Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-        if (tag == null) {
-            return;
-        }
-        String id = idHex(tag);
-
-        if (enAttenteDEnregistrement) {
-            enAttenteDEnregistrement = false;
-            Intent choix = new Intent(this, ChoixApplisTagActivity.class);
-            choix.putExtra(ChoixApplisTagActivity.EXTRA_TAG_ID, id);
-            startActivity(choix);
-            return;
-        }
-
-        int nombre = regles.debloquerViaTag(id);
-        if (nombre > 0) {
-            Toast.makeText(this, getString(R.string.nfc_deblocage_reussi, regles.getNomTag(id), nombre),
-                    Toast.LENGTH_LONG).show();
-        } else {
-            Toast.makeText(this, R.string.nfc_badge_inconnu, Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void rafraichirEtatEtListe() {
-        texteEtat.setText(nfcAdapter == null ? getString(R.string.nfc_indisponible) : "");
-
-        List<String> ids = new ArrayList<>(regles.getTagsNfc());
-        Collections.sort(ids, Comparator.comparing(id -> regles.getNomTag(id).toLowerCase(Locale.FRANCE)));
-        tagIdsAffiches = ids;
-
-        List<String> lignes = new ArrayList<>();
-        for (String id : ids) {
-            lignes.add(getString(R.string.nfc_ligne_tag_format, regles.getNomTag(id), regles.getApplisTag(id).size()));
-        }
-        listeTags.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, lignes));
-
-        listeTags.setOnItemClickListener((parent, view, position, id) -> {
-            Intent choix = new Intent(this, ChoixApplisTagActivity.class);
-            choix.putExtra(ChoixApplisTagActivity.EXTRA_TAG_ID, tagIdsAffiches.get(position));
-            startActivity(choix);
-        });
-        listeTags.setOnItemLongClickListener((parent, view, position, id) -> {
-            String tagId = tagIdsAffiches.get(position);
-            new AlertDialog.Builder(this)
-                    .setMessage(getString(R.string.nfc_confirmer_suppression, regles.getNomTag(tagId)))
-                    .setPositiveButton(R.string.oui, (dialog, which) -> {
-                        regles.supprimerTag(tagId);
-                        rafraichirEtatEtListe();
-                    })
-                    .setNegativeButton(R.string.non, null)
-                    .show();
-            return true;
-        });
-    }
-
-    private static String idHex(Tag tag) {
-        byte[] octets = tag.getId();
-        StringBuilder texte = new StringBuilder();
-        for (byte octet : octets) {
-            texte.append(String.format(Locale.ROOT, "%02x", octet));
-        }
-        return texte.toString();
+        super.onNewIntent(intent);
     }
 }
