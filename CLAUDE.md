@@ -7,8 +7,8 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
 
 ## Dépôt et fabrication
 
-- Dépôt Git propre à ce projet, indépendant de `cyranss/` (pas de remote
-  configuré pour l'instant — à créer sur GitHub quand utile).
+- Dépôt Git propre à ce projet, indépendant de `cyranss/` ; remote `origin` =
+  https://github.com/cyriacbarbe/discipline (public, branche `master`).
 - Outils de compilation : les mêmes que Cyranss, dans
   `C:\Users\user\android-outils` (JDK 17, SDK Android 34, Gradle 8.7).
   ```bash
@@ -17,9 +17,6 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   ```
   L'APK sort dans `app/build/outputs/apk/debug/app-debug.apk` — à copier sur
   le téléphone et installer (sources inconnues) pour tester.
-- Pas de clé de signature pour l'instant (mode debug uniquement) : à ajouter
-  le jour où l'appli doit se mettre à jour proprement sans tout réinstaller
-  (voir comment `cyranss/android` le fait, même mécanique si besoin).
 
 ## Mises à jour (bouton « Télécharger la mise à jour »)
 
@@ -45,18 +42,7 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   (déclaré dans `<queries>` du Manifest, pas besoin de la permission
   QUERY_ALL_PACKAGES).
 
-## Fait
+## Fait (codé, tests sur téléphone en cours)
 
-- Blocage par liste d'applications + un créneau horaire global (ex. 22h-7h).
-
-## À venir (dans cet ordre, un morceau à la fois)
-
-- **Sessions limitées** : ex. 4 fois par jour, débloquer 3 applications
-  précises pour une durée donnée, compteur remis à zéro chaque jour.
-- **Quota de temps par appli/jour** : nécessite `PACKAGE_USAGE_STATS`
-  (permission spéciale à accorder dans Réglages > Accès à l'utilisation).
-- **Déblocage par puce NFC** : scanner un tag posé quelque part (cuisine,
-  bureau...) pour débloquer une ou plusieurs applications ; lecture NFC déjà
-  standard en Android (`NfcAdapter`), pas de nouveau matériel si le
-  téléphone a le NFC.
-- **Créneaux par application** (pas juste un créneau global).
+- Blocage par liste + créneau global, sessions limitées, quotas par appli,
+  badges NFC, créneaux par application. Release v2 publiée.
