@@ -3,9 +3,11 @@ package fr.discipline.app;
 import android.app.Activity;
 import android.app.TimePickerDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Switch;
@@ -59,9 +61,28 @@ public class MainActivity extends Activity {
                 Applications.installees(getPackageManager(), getPackageName()), regles));
     }
 
+    private void verifierMiseAJour() {
+        Button bouton = findViewById(R.id.bouton_mise_a_jour);
+        new Thread(() -> {
+            try {
+                String lien = MiseAJour.lienSiDisponible();
+                if (lien != null) {
+                    runOnUiThread(() -> {
+                        bouton.setOnClickListener(v ->
+                                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(lien))));
+                        bouton.setVisibility(View.VISIBLE);
+                    });
+                }
+            } catch (Exception e) {
+                // hors ligne ou aucune Release publiée : pas de bouton
+            }
+        }).start();
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        verifierMiseAJour();
         etatService.setText(serviceAccessibiliteActif() ? R.string.service_actif : R.string.service_inactif);
         etatUtilisation.setText(new Usage(this).permissionAccordee()
                 ? R.string.acces_utilisation_actif : R.string.acces_utilisation_inactif);

@@ -12,6 +12,7 @@
     <string name="debut_format">Début : %1$s</string>
     <string name="fin_format">Fin : %1$s</string>
 
+    <string name="telecharger_mise_a_jour">Télécharger la mise à jour</string>
     <string name="reglages_symbole">⚙</string>
     <string name="bloquee">Bloquée</string>
     <string name="creneau_label">Créneau horaire</string>

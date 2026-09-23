@@ -5,6 +5,13 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <Button
+        android:id="@+id/bouton_mise_a_jour"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/telecharger_mise_a_jour"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/etat_service"
         android:layout_width="match_parent"
