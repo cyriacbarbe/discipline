@@ -17,6 +17,11 @@
         android:textStyle="bold"
         android:visibility="gone" />
 
+    <LinearLayout
+        android:id="@+id/mise_en_route"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
     <TextView
         style="@style/Titre"
         android:text="@string/titre_mise_en_route" />
@@ -54,6 +59,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/autoriser_utilisation" />
+    </LinearLayout>
     </LinearLayout>
 
     <TextView

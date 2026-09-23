@@ -106,9 +106,14 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         verifierMiseAJour();
-        etatService.setText(serviceAccessibiliteActif() ? R.string.service_actif : R.string.service_inactif);
-        etatUtilisation.setText(new Usage(this).permissionAccordee()
+        boolean blocageActif = serviceAccessibiliteActif();
+        boolean utilisationAccordee = new Usage(this).permissionAccordee();
+        etatService.setText(blocageActif ? R.string.service_actif : R.string.service_inactif);
+        etatUtilisation.setText(utilisationAccordee
                 ? R.string.acces_utilisation_actif : R.string.acces_utilisation_inactif);
+        // La mise en route disparaît une fois tout accordé, et revient si un réglage est retiré.
+        en.findViewById(R.id.mise_en_route).setVisibility(
+                blocageActif && utilisationAccordee ? View.GONE : View.VISIBLE);
     }
 
     private void choisirHeure(boolean debut) {
