@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <Button
+        android:id="@+id/bouton_mise_a_jour"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="96dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bouton_maj"
+        android:text="@string/telecharger_mise_a_jour"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <TextView
+        style="@style/Titre"
+        android:text="@string/titre_mise_en_route" />
+
+    <!-- Étape 1 : paramètres restreints -->
+    <LinearLayout style="@style/Carte">
+        <TextView style="@style/CarteTitre" android:text="@string/etape1_titre" />
+        <TextView style="@style/CarteTexte" android:text="@string/etape1_texte" />
+        <Button
+            android:id="@+id/bouton_infos_appli"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/etape1_bouton" />
+    </LinearLayout>
+
+    <!-- Étape 2 : accessibilité -->
+    <LinearLayout style="@style/Carte">
+        <TextView style="@style/CarteTitre" android:text="@string/etape2_titre" />
+        <TextView style="@style/CarteTexte" android:text="@string/etape2_texte" />
+        <TextView android:id="@+id/etat_service" style="@style/Etat" />
+        <Button
+            android:id="@+id/bouton_activer_service"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/activer_service" />
+    </LinearLayout>
+
+    <!-- Étape 3 : accès à l'utilisation -->
+    <LinearLayout style="@style/Carte">
+        <TextView style="@style/CarteTitre" android:text="@string/etape3_titre" />
+        <TextView style="@style/CarteTexte" android:text="@string/etape3_texte" />
+        <TextView android:id="@+id/etat_utilisation" style="@style/Etat" />
+        <Button
+            android:id="@+id/bouton_autoriser_utilisation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/autoriser_utilisation" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/Titre"
+        android:text="@string/titre_outils" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/bouton_sessions"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="@string/bouton_sessions" />
+
+        <Button
+            android:id="@+id/bouton_nfc"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="@string/bouton_nfc" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/Titre"
+        android:text="@string/titre_creneau" />
+
+    <LinearLayout style="@style/Carte">
+        <Switch
+            android:id="@+id/interrupteur_creneau"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/limiter_creneau" />
+        <TextView style="@style/CarteTexte" android:text="@string/creneau_explication" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/bouton_debut"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content" />
+            <Button
+                android:id="@+id/bouton_fin"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        style="@style/Titre"
+        android:text="@string/applications_a_bloquer" />
+    <TextView
+        style="@style/CarteTexte"
+        android:paddingBottom="8dp"
+        android:text="@string/applications_explication" />
+</LinearLayout>

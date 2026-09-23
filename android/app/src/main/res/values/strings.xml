@@ -2,9 +2,9 @@
 <resources>
     <string name="app_name">Discipline</string>
     <string name="description_service">Détecte l\'application ouverte au premier plan pour appliquer les blocages et créneaux définis dans Discipline.</string>
-    <string name="activer_service">Activer le blocage (accessibilité)</string>
-    <string name="service_actif">Blocage actif</string>
-    <string name="service_inactif">Blocage inactif — à activer ci-dessous</string>
+    <string name="activer_service">Ouvrir les réglages d’accessibilité</string>
+    <string name="service_actif">✓ Blocage actif</string>
+    <string name="service_inactif">✗ Blocage inactif</string>
     <string name="limiter_creneau">Limiter à un créneau horaire</string>
     <string name="applications_a_bloquer">Applications à bloquer</string>
     <string name="fermer">Fermer</string>
@@ -12,7 +12,8 @@
     <string name="debut_format">Début : %1$s</string>
     <string name="fin_format">Fin : %1$s</string>
 
-    <string name="telecharger_mise_a_jour">Télécharger la mise à jour</string>
+    <string name="telecharger_mise_a_jour">⬇ Une mise à jour est disponible
+Touche ici pour la télécharger</string>
     <string name="reglages_symbole">⚙</string>
     <string name="bloquee">Bloquée</string>
     <string name="creneau_label">Créneau horaire</string>
@@ -47,7 +48,20 @@
     <string name="non">Non</string>
     <string name="enregistrer">Enregistrer</string>
 
-    <string name="acces_utilisation_actif">Accès à l\'utilisation accordé</string>
-    <string name="acces_utilisation_inactif">Accès à l\'utilisation non accordé — nécessaire pour les quotas</string>
-    <string name="autoriser_utilisation">Autoriser l\'accès à l\'utilisation</string>
+    <string name="acces_utilisation_actif">✓ Accès accordé</string>
+    <string name="acces_utilisation_inactif">✗ Accès non accordé</string>
+    <string name="autoriser_utilisation">Ouvrir les réglages d’accès</string>
+
+    <string name="titre_mise_en_route">Mise en route</string>
+    <string name="etape1_titre">1. Autoriser les paramètres restreints</string>
+    <string name="etape1_texte">Android bloque les deux réglages suivants pour une appli installée hors Play Store. Ouvre la fiche de l’appli, touche les trois petits points ⋮ en haut à droite, puis « Autoriser les paramètres restreints ».</string>
+    <string name="etape1_bouton">Ouvrir la fiche de l’appli</string>
+    <string name="etape2_titre">2. Activer le blocage</string>
+    <string name="etape2_texte">Dans Accessibilité, ouvre « Discipline » et active-la : c’est ce qui permet de voir quelle appli s’ouvre.</string>
+    <string name="etape3_titre">3. Autoriser le suivi du temps</string>
+    <string name="etape3_texte">Sert uniquement aux quotas quotidiens par appli. Ouvre « Discipline » dans la liste et autorise.</string>
+    <string name="titre_outils">Déblocages</string>
+    <string name="titre_creneau">Créneau horaire global</string>
+    <string name="creneau_explication">Les applis cochées ci-dessous ne sont bloquées que pendant ce créneau (ex. de 22:00 à 07:00). Désactivé : elles sont bloquées en permanence.</string>
+    <string name="applications_explication">Coche pour bloquer. Touche ⚙ pour régler une appli (créneau, quota, session).</string>
 </resources>

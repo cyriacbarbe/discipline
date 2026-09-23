@@ -18,6 +18,7 @@ import java.util.Locale;
 public class MainActivity extends Activity {
 
     private Regles regles;
+    private View en;
     private TextView etatService;
     private TextView etatUtilisation;
     private Button boutonDebut;
@@ -28,41 +29,48 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        ListView listeApplications = findViewById(R.id.liste_applications);
+        en = getLayoutInflater().inflate(R.layout.header_main, listeApplications, false);
+        listeApplications.addHeaderView(en, null, false);
+
         regles = new Regles(this);
 
-        etatService = findViewById(R.id.etat_service);
-        findViewById(R.id.bouton_activer_service).setOnClickListener(v ->
+        en.findViewById(R.id.bouton_infos_appli).setOnClickListener(v ->
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + getPackageName()))));
+
+        etatService = en.findViewById(R.id.etat_service);
+        en.findViewById(R.id.bouton_activer_service).setOnClickListener(v ->
                 startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
 
-        etatUtilisation = findViewById(R.id.etat_utilisation);
-        findViewById(R.id.bouton_autoriser_utilisation).setOnClickListener(v ->
+        etatUtilisation = en.findViewById(R.id.etat_utilisation);
+        en.findViewById(R.id.bouton_autoriser_utilisation).setOnClickListener(v ->
                 startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
 
-        findViewById(R.id.bouton_sessions).setOnClickListener(v ->
+        en.findViewById(R.id.bouton_sessions).setOnClickListener(v ->
                 startActivity(new Intent(this, SessionsActivity.class)));
-        findViewById(R.id.bouton_nfc).setOnClickListener(v ->
+        en.findViewById(R.id.bouton_nfc).setOnClickListener(v ->
                 startActivity(new Intent(this, NfcActivity.class)));
 
-        Switch interrupteurCreneau = findViewById(R.id.interrupteur_creneau);
+        Switch interrupteurCreneau = en.findViewById(R.id.interrupteur_creneau);
         interrupteurCreneau.setChecked(regles.isCreneauActif());
         interrupteurCreneau.setOnCheckedChangeListener((bouton, coche) -> {
             regles.setCreneauActif(coche);
             rafraichirBoutonsCreneau();
         });
 
-        boutonDebut = findViewById(R.id.bouton_debut);
-        boutonFin = findViewById(R.id.bouton_fin);
+        boutonDebut = en.findViewById(R.id.bouton_debut);
+        boutonFin = en.findViewById(R.id.bouton_fin);
         boutonDebut.setOnClickListener(v -> choisirHeure(true));
         boutonFin.setOnClickListener(v -> choisirHeure(false));
         rafraichirBoutonsCreneau();
 
-        ListView listeApplications = findViewById(R.id.liste_applications);
         listeApplications.setAdapter(new ListeApplicationsAdapter(this,
                 Applications.installees(getPackageManager(), getPackageName()), regles));
     }
 
     private void verifierMiseAJour() {
-        Button bouton = findViewById(R.id.bouton_mise_a_jour);
+        Button bouton = en.findViewById(R.id.bouton_mise_a_jour);
         new Thread(() -> {
             try {
                 String lien = MiseAJour.lienSiDisponible();

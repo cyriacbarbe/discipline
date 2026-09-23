@@ -22,7 +22,8 @@
     <application
         android:label="Discipline"
         android:icon="@android:drawable/sym_def_app_icon"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:theme="@android:style/Theme.DeviceDefault.Light">
 
         <activity
             android:name=".MainActivity"

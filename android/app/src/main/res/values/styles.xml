@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Titre">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#1F2340</item>
+        <item name="android:paddingTop">20dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+    <style name="Carte">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:background">@drawable/carte</item>
+        <item name="android:padding">14dp</item>
+        <item name="android:layout_marginBottom">10dp</item>
+    </style>
+    <style name="CarteTitre">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#1F2340</item>
+    </style>
+    <style name="CarteTexte">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">#555A6E</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">6dp</item>
+    </style>
+    <style name="Etat">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:paddingBottom">6dp</item>
+    </style>
+</resources>
