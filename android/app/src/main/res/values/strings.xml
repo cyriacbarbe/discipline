@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Discipline</string>
+    <string name="description_service">Détecte l\'application ouverte au premier plan pour appliquer les blocages et créneaux définis dans Discipline.</string>
+    <string name="activer_service">Activer le blocage (accessibilité)</string>
+    <string name="service_actif">Blocage actif</string>
+    <string name="service_inactif">Blocage inactif — à activer ci-dessous</string>
+    <string name="limiter_creneau">Limiter à un créneau horaire</string>
+    <string name="applications_a_bloquer">Applications à bloquer</string>
+    <string name="fermer">Fermer</string>
+    <string name="message_blocage">%1$s est bloquée en ce moment.</string>
+    <string name="debut_format">Début : %1$s</string>
+    <string name="fin_format">Fin : %1$s</string>
+</resources>
