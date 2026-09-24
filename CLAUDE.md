@@ -51,3 +51,7 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
 
 - v1.0 : refonte complète du cahier des charges (9 types de limites, ET/OU,
   exceptions, groupes, profils, vacances, anti-triche, stats).
+- v1.1 : icônes dans les choix (carrousel pour les groupes, ✎ pour les modifier),
+  journal gardé sans limite, historique repris d'Android (`Historique`,
+  « Accès aux données d'utilisation » : détail ≈ 10 j dans le journal, totaux
+  plus anciens dans `historique.txt`, importés une seule fois).
