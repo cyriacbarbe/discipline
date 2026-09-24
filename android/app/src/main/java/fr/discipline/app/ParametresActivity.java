@@ -1,10 +1,20 @@
 package fr.discipline.app;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.widget.LinearLayout;
+
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 /** Paramètres : tolérance, début de journée, « Suivies », vacances et liens vers les sous-pages. */
 public class ParametresActivity extends Ecran {
+    private static final int EXPORTER = 41;
+    private static final int IMPORTER = 42;
     private static final long JOUR = 86_400_000L;
 
     @Override
@@ -85,7 +95,51 @@ public class ParametresActivity extends Ecran {
         liens.addView(Ui.lien(this, "Anti-triche", donnees.delaiAssouplissement == 0 && !donnees.nfcPourModifier
                 ? "Libre" : "Activé", v -> startActivity(new Intent(this, AntiTricheActivity.class))));
 
+        LinearLayout sauvegarde = Ui.ajouter(c, Ui.carte(this), 8);
+        sauvegarde.addView(Ui.lien(this, "Exporter le réglage", "", v -> startActivityForResult(
+                new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json")
+                        .putExtra(Intent.EXTRA_TITLE, "discipline-reglage-" + donnees.cleJour(Horloge.maintenant()) + ".json"),
+                EXPORTER)));
+        sauvegarde.addView(Ui.lien(this, "Importer un réglage", "", v -> startActivityForResult(
+                new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), IMPORTER)));
+        sauvegarde.addView(Ui.petit(this, "Limites, groupes, profils, messages, badges et réglages, dans un fichier. "
+                + "Importer remplace tout le réglage (l’anti-triche s’applique) ; l’historique d’usage n’est pas touché."));
+
         Ui.ajouter(c, Ui.petit(this, "Discipline " + BuildConfig.VERSION_NAME), 16);
+    }
+
+    @Override
+    protected void onActivityResult(int requete, int resultat, Intent data) {
+        super.onActivityResult(requete, resultat, data);
+        Uri fichier = data == null ? null : data.getData();
+        if (resultat != RESULT_OK || fichier == null) {
+            return;
+        }
+        if (requete == EXPORTER) {
+            try (OutputStream sortie = getContentResolver().openOutputStream(fichier)) {
+                sortie.write(donnees.exporter().toString(2).getBytes(StandardCharsets.UTF_8));
+                toast("Réglage exporté.");
+            } catch (Exception e) {
+                toast("Export impossible : " + e.getMessage());
+            }
+        } else if (requete == IMPORTER) {
+            try (InputStream entree = getContentResolver().openInputStream(fichier)) {
+                ByteArrayOutputStream tampon = new ByteArrayOutputStream();
+                byte[] morceau = new byte[8192];
+                for (int n; (n = entree.read(morceau)) > 0; ) {
+                    tampon.write(morceau, 0, n);
+                }
+                JSONObject reglages = new JSONObject(tampon.toString("UTF-8"));
+                if (!reglages.has("limites")) {
+                    toast("Ce fichier n’est pas un réglage de Discipline.");
+                    return;
+                }
+                garde(Donnees.changement("import", "").put("reglages", reglages),
+                        "importer un réglage (" + reglages.getJSONArray("limites").length() + " limites)", null);
+            } catch (Exception e) {
+                toast("Import impossible : " + e.getMessage());
+            }
+        }
     }
 
     private static org.json.JSONObject vacances(long jusqua) {

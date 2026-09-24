@@ -210,6 +210,19 @@ final class Donnees {
     }
 
     synchronized void enregistrer() {
+        prefs.edit().putString(CLE, json().toString()).apply();
+    }
+
+    /** Le réglage seul, sans l'état du téléphone : ce qu'on exporte. */
+    synchronized JSONObject exporter() {
+        JSONObject o = json();
+        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances"}) {
+            o.remove(cle);
+        }
+        return o;
+    }
+
+    private JSONObject json() {
         try {
             JSONObject o = new JSONObject();
             JSONArray ls = new JSONArray();
@@ -236,7 +249,7 @@ final class Donnees {
             if (applisConnues != null) {
                 o.put("connues", new JSONArray(applisConnues));
             }
-            prefs.edit().putString(CLE, o.toString()).apply();
+            return o;
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -459,13 +472,11 @@ final class Donnees {
             case "import":
                 remplacer(ch.optJSONObject("reglages"));
                 break;
-            case "strict":
-                modeStrict = ch.optBoolean("valeur");
-                break;
             case "antitriche":
                 delaiAssouplissement = ch.optInt("delai");
                 nfcPourModifier = ch.optBoolean("nfc");
                 alerteAccessibilite = ch.optBoolean("alerte");
+                modeStrict = ch.optBoolean("strict", modeStrict);
                 break;
             default:
                 break;

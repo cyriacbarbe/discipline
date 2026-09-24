@@ -1,6 +1,9 @@
 package fr.discipline.app;
 
 import android.Manifest;
+import android.app.admin.DevicePolicyManager;
+import android.content.Intent;
+import android.provider.Settings;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.widget.CheckBox;
@@ -13,6 +16,7 @@ public class AntiTricheActivity extends Ecran {
     private int delai;
     private boolean nfc;
     private boolean alerte;
+    private boolean strict;
 
     @Override
     protected void onResume() {
@@ -20,6 +24,7 @@ public class AntiTricheActivity extends Ecran {
         delai = donnees.delaiAssouplissement;
         nfc = donnees.nfcPourModifier;
         alerte = donnees.alerteAccessibilite;
+        strict = donnees.modeStrict;
         rafraichir();
     }
 
@@ -60,10 +65,35 @@ public class AntiTricheActivity extends Ecran {
             }
         });
         reglages.addView(caseAlerte);
-        CheckBox admin = Ui.caseACocher(this, "Administrateur de l’appareil (bientôt)", false);
-        admin.setEnabled(false);
-        admin.setAlpha(0.5f);
-        reglages.addView(admin);
+
+        Ui.ajouter(c, Ui.section(this, "Protéger Discipline elle-même"), 16);
+        LinearLayout protection = Ui.ajouter(c, Ui.carte(this), 8);
+        CheckBox caseStrict = Ui.caseACocher(this, "Mode strict", strict);
+        caseStrict.setOnCheckedChangeListener((b, coche) -> strict = coche);
+        protection.addView(caseStrict);
+        protection.addView(Ui.petit(this, "Les pages des Réglages d’Android qui permettraient d’arrêter Discipline "
+                + "(forcer l’arrêt, désinstaller, effacer les données, couper l’accessibilité, retirer l’administrateur) "
+                + "se referment d’elles-mêmes. Pour le quitter, il faut repasser ici, avec le délai ou le badge."));
+        DevicePolicyManager dpm = getSystemService(DevicePolicyManager.class);
+        boolean adminActif = dpm.isAdminActive(Admin.composant(this));
+        protection.addView(Ui.lien(this, "Administrateur de l’appareil", adminActif ? "actif ✓" : "à activer", v -> {
+            if (adminActif) {
+                toast("Déjà actif. Il se retire dans Réglages > Sécurité > Applis d’administration (fermé en mode strict).");
+                return;
+            }
+            startActivity(new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                    .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, Admin.composant(this))
+                    .putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                            "Empêche de désinstaller Discipline sur un coup de tête. Aucun autre pouvoir."));
+        }));
+        protection.addView(Ui.petit(this, "Tant qu’il est actif, Android refuse de désinstaller Discipline."));
+        protection.addView(Ui.lien(this, "Accès aux notifications", Notifications.autorise(this) ? "autorisé ✓" : "à autoriser",
+                v -> startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))));
+        protection.addView(Ui.petit(this, "Sert à couper le son d’une appli bloquée qui joue en arrière-plan, "
+                + "et à mettre ses notifications en sourdine si la limite le demande."));
+        protection.addView(Ui.petit(this, "Ensemble, c’est ce qu’on peut faire de mieux sans outil d’entreprise. "
+                + "Reste possible : redémarrer en mode sans échec (appui long sur « Éteindre ») ou réinitialiser le "
+                + "téléphone — assez pénible pour décourager un moment de faiblesse."));
 
         boutonBas(c, "Enregistrer", v -> enregistrer());
     }
@@ -71,13 +101,15 @@ public class AntiTricheActivity extends Ecran {
     private void enregistrer() {
         JSONObject ch;
         try {
-            ch = Donnees.changement("antitriche", "").put("delai", delai).put("nfc", nfc).put("alerte", alerte);
+            ch = Donnees.changement("antitriche", "").put("delai", delai).put("nfc", nfc).put("alerte", alerte)
+                    .put("strict", strict);
         } catch (Exception e) {
             return;
         }
         boolean assouplit = delai < donnees.delaiAssouplissement
                 || (!nfc && donnees.nfcPourModifier)
-                || (!alerte && donnees.alerteAccessibilite);
+                || (!alerte && donnees.alerteAccessibilite)
+                || (!strict && donnees.modeStrict);
         Runnable fin = () -> {
             Surveillance.planifier(this);
             finish();
