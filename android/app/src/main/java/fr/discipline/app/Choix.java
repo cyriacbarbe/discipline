@@ -4,12 +4,15 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -19,6 +22,7 @@ import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
@@ -34,13 +38,42 @@ final class Choix {
         final String nom;
         final String detail;
         final boolean groupe;
+        /** Groupe : ses applis les plus utilisées, dont les icônes défilent. */
+        final List<String> carrousel;
 
-        Element(String id, String nom, String detail, boolean groupe) {
+        Element(String id, String nom, String detail, boolean groupe, List<String> carrousel) {
             this.id = id;
             this.nom = nom;
             this.detail = detail;
             this.groupe = groupe;
+            this.carrousel = carrousel;
         }
+    }
+
+    private static final int TAILLE_CARROUSEL = 5;
+    private static final long PAS_CARROUSEL_MS = 1500;
+
+    /** Les applis du groupe, de la plus utilisée ces 7 derniers jours à la moins utilisée. */
+    private static List<String> plusUtilisees(Set<String> paquets, Map<String, Long> temps) {
+        List<String> tries = new ArrayList<>(paquets);
+        tries.sort((x, y) -> Long.compare(temps.getOrDefault(y, 0L), temps.getOrDefault(x, 0L)));
+        return tries.subList(0, Math.min(TAILLE_CARROUSEL, tries.size()));
+    }
+
+    private static ImageView icone(Activity a) {
+        ImageView v = new ImageView(a);
+        int t = Ui.dp(a, 36);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(t, t);
+        lp.setMargins(Ui.dp(a, 4), 0, Ui.dp(a, 12), 0);
+        v.setLayoutParams(lp);
+        return v;
+    }
+
+    /** Icône de l'élément ; pour un groupe, celle du carrousel au tour {@code tour}. */
+    private static void montrerIcone(Activity a, ImageView v, Element e, int tour) {
+        String paquet = !e.groupe ? e.id
+                : e.carrousel.isEmpty() ? null : e.carrousel.get(tour % e.carrousel.size());
+        v.setImageDrawable(paquet == null ? null : Applications.icone(a, paquet));
     }
 
     /**
@@ -51,8 +84,11 @@ final class Choix {
         Donnees d = Donnees.get(a);
         List<Element> tous = new ArrayList<>();
         if (groupes != null) {
+            long maintenant = System.currentTimeMillis();
+            Map<String, Long> temps = Journal.get(a).tempsParAppli(maintenant - 7 * 24 * 3600_000L, maintenant);
             for (Donnees.Groupe g : d.groupes.values()) {
-                tous.add(new Element(g.id, g.nom, "Groupe · " + g.paquets.size() + " appli(s)", true));
+                tous.add(new Element(g.id, g.nom, "Groupe · " + g.paquets.size() + " appli(s)", true,
+                        plusUtilisees(g.paquets, temps)));
             }
         }
         for (AppInfo app : Applications.installees(a.getPackageManager(), a.getPackageName())) {
@@ -60,7 +96,7 @@ final class Choix {
             for (Donnees.Groupe g : d.groupesDe(app.paquet)) {
                 noms.add("● " + g.nom);
             }
-            tous.add(new Element(app.paquet, app.nom, String.join("   ", noms), false));
+            tous.add(new Element(app.paquet, app.nom, String.join("   ", noms), false, null));
         }
         Set<String> applisCochees = new HashSet<>(applis);
         Set<String> groupesCoches = groupes == null ? new HashSet<>() : new HashSet<>(groupes);
@@ -73,6 +109,7 @@ final class Choix {
         ListView liste = new ListView(a);
         vue.addView(liste, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(a, 420)));
 
+        int[] tour = {0};
         BaseAdapter adaptateur = new BaseAdapter() {
             @Override
             public int getCount() {
@@ -99,6 +136,7 @@ final class Choix {
                     cb.setClickable(false);
                     cb.setFocusable(false);
                     ligne.addView(cb);
+                    ligne.addView(icone(a));
                     LinearLayout textes = Ui.colonne(a);
                     textes.addView(Ui.corps(a, ""));
                     textes.addView(Ui.texte(a, "", 12, Ui.VERT, false));
@@ -107,7 +145,12 @@ final class Choix {
                     ligne = (LinearLayout) recyclee;
                 }
                 Element e = visibles.get(i);
-                LinearLayout textes = (LinearLayout) ligne.getChildAt(1);
+                ligne.setTag(e);
+                ImageView ic = (ImageView) ligne.getChildAt(1);
+                ic.animate().cancel();
+                ic.setAlpha(1f);
+                montrerIcone(a, ic, e, tour[0]);
+                LinearLayout textes = (LinearLayout) ligne.getChildAt(2);
                 ((TextView) textes.getChildAt(0)).setText(e.nom);
                 TextView detail = (TextView) textes.getChildAt(1);
                 detail.setText(e.detail);
@@ -138,6 +181,30 @@ final class Choix {
             adaptateur.notifyDataSetChanged();
         });
 
+        // Carrousel : les groupes visibles passent à l'icône suivante, en fondu.
+        Handler minuterie = new Handler(Looper.getMainLooper());
+        Runnable defiler = new Runnable() {
+            @Override
+            public void run() {
+                tour[0]++;
+                for (int i = 0; i < liste.getChildCount(); i++) {
+                    View ligne = liste.getChildAt(i);
+                    Element e = (Element) ligne.getTag();
+                    if (e == null || !e.groupe || e.carrousel.size() < 2) {
+                        continue;
+                    }
+                    ImageView ic = (ImageView) ((LinearLayout) ligne).getChildAt(1);
+                    int t = tour[0];
+                    ic.animate().alpha(0f).setDuration(200).withEndAction(() -> {
+                        montrerIcone(a, ic, e, t);
+                        ic.animate().alpha(1f).setDuration(200);
+                    });
+                }
+                minuterie.postDelayed(this, PAS_CARROUSEL_MS);
+            }
+        };
+        minuterie.postDelayed(defiler, PAS_CARROUSEL_MS);
+
         new AlertDialog.Builder(a)
                 .setTitle(titre)
                 .setView(vue)
@@ -151,18 +218,49 @@ final class Choix {
                     ok.run();
                 })
                 .setNegativeButton("Annuler", null)
+                .setOnDismissListener(dlg -> minuterie.removeCallbacksAndMessages(null))
                 .show();
     }
 
     static void appli(Activity a, String titre, Consumer<String> choix) {
         List<AppInfo> applis = Applications.installees(a.getPackageManager(), a.getPackageName());
-        String[] noms = new String[applis.size()];
-        for (int i = 0; i < noms.length; i++) {
-            noms[i] = applis.get(i).nom;
-        }
+        BaseAdapter adaptateur = new BaseAdapter() {
+            @Override
+            public int getCount() {
+                return applis.size();
+            }
+
+            @Override
+            public Object getItem(int i) {
+                return applis.get(i);
+            }
+
+            @Override
+            public long getItemId(int i) {
+                return i;
+            }
+
+            @Override
+            public View getView(int i, View recyclee, ViewGroup parent) {
+                LinearLayout ligne;
+                if (recyclee == null) {
+                    ligne = Ui.rangee(a);
+                    int p = Ui.dp(a, 20);
+                    ligne.setPadding(p, Ui.dp(a, 8), p, Ui.dp(a, 8));
+                    ligne.addView(icone(a));
+                    Ui.etirer(ligne, Ui.corps(a, ""));
+                } else {
+                    ligne = (LinearLayout) recyclee;
+                }
+                AppInfo app = applis.get(i);
+                ((ImageView) ligne.getChildAt(0)).setImageDrawable(Applications.icone(a, app.paquet));
+                ((TextView) ligne.getChildAt(1)).setText(app.nom);
+                return ligne;
+            }
+        };
         new AlertDialog.Builder(a)
                 .setTitle(titre)
-                .setItems(noms, (dlg, i) -> choix.accept(applis.get(i).paquet))
+                .setAdapter(adaptateur, (dlg, i) -> choix.accept(applis.get(i).paquet))
                 .setNegativeButton("Annuler", null)
                 .show();
     }

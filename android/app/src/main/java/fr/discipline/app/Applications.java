@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.drawable.Drawable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,6 +20,7 @@ import java.util.Set;
 /** Liste les applications installées disposant d'un lanceur, triées par nom. */
 final class Applications {
     private static final Map<String, String> NOMS = new HashMap<>();
+    private static final Map<String, Drawable.ConstantState> ICONES = new HashMap<>();
 
     private Applications() {
     }
@@ -78,5 +80,30 @@ final class Applications {
             NOMS.put(paquet, nom);
         }
         return nom;
+    }
+
+    /** Icône de l'appli (null si désinstallée), chargée une fois puis gardée en mémoire. */
+    static Drawable icone(Context c, String paquet) {
+        Drawable.ConstantState etat;
+        synchronized (ICONES) {
+            etat = ICONES.get(paquet);
+        }
+        if (etat == null) {
+            Drawable d;
+            try {
+                d = c.getPackageManager().getApplicationIcon(paquet);
+            } catch (PackageManager.NameNotFoundException e) {
+                return null;
+            }
+            etat = d.getConstantState();
+            if (etat == null) {
+                return d;
+            }
+            synchronized (ICONES) {
+                ICONES.put(paquet, etat);
+            }
+        }
+        // Une copie par vue : une même icône peut s'afficher deux fois (groupe et appli).
+        return etat.newDrawable(c.getResources());
     }
 }
