@@ -2,8 +2,6 @@ package fr.discipline.app;
 
 import android.widget.LinearLayout;
 
-import org.json.JSONObject;
-
 import java.util.ArrayList;
 
 /** Groupes d'applis : une appli peut être dans plusieurs groupes. */
@@ -26,16 +24,16 @@ public class GroupesActivity extends Ecran {
             LinearLayout textes = Ui.etirer(r, Ui.colonne(this));
             textes.addView(Ui.texte(this, g.nom, 17, Ui.TEXTE, true));
             textes.addView(Ui.petit(this, noms(g)));
-            r.addView(Ui.croix(this, v -> changer(g, true)));
+            r.addView(Ui.croix(this, v -> modifierGroupe(g, true, null)));
             carte.setOnClickListener(v -> {
-                Donnees.Groupe copie = copie(g);
-                Choix.cibles(this, g.nom, copie.paquets, null, () -> changer(copie, false));
+                Donnees.Groupe copie = copieGroupe(g);
+                Choix.cibles(this, g.nom, copie.paquets, null, () -> modifierGroupe(copie, false, null));
             });
             textes.getChildAt(0).setOnClickListener(v -> Choix.texte(this, "Nom du groupe", g.nom, "", t -> {
                 if (!t.isEmpty()) {
-                    Donnees.Groupe copie = copie(g);
+                    Donnees.Groupe copie = copieGroupe(g);
                     copie.nom = t;
-                    donnees.appliquer(changement(copie, false));
+                    donnees.appliquer(changementGroupe(copie, false));
                     rafraichir();
                 }
             }));
@@ -47,7 +45,7 @@ public class GroupesActivity extends Ecran {
             Donnees.Groupe g = new Donnees.Groupe();
             g.nom = t;
             Choix.cibles(this, t, g.paquets, null, () -> {
-                donnees.appliquer(changement(g, false));
+                donnees.appliquer(changementGroupe(g, false));
                 rafraichir();
             });
         }));
@@ -62,36 +60,5 @@ public class GroupesActivity extends Ecran {
             noms.add(Applications.nom(this, p));
         }
         return String.join(", ", noms);
-    }
-
-    private static Donnees.Groupe copie(Donnees.Groupe g) {
-        try {
-            return Donnees.Groupe.de(g.json());
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private static JSONObject changement(Donnees.Groupe g, boolean suppression) {
-        try {
-            JSONObject ch = Donnees.changement("groupe", g.id);
-            return suppression ? ch : ch.put("groupe", g.json());
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    /** Retirer des applis d'un groupe utilisé par une limite active assouplit : anti-triche. */
-    private void changer(Donnees.Groupe g, boolean suppression) {
-        JSONObject ch = changement(g, suppression);
-        Donnees.Groupe ancien = donnees.groupes.get(g.id);
-        boolean assouplit = ancien != null && donnees.groupeUtilise(g.id)
-                && (suppression || !g.paquets.containsAll(ancien.paquets));
-        if (assouplit) {
-            garde(ch, (suppression ? "supprimer" : "retirer des applis de") + " « " + ancien.nom + " »", null);
-        } else {
-            donnees.appliquer(ch);
-            rafraichir();
-        }
     }
 }

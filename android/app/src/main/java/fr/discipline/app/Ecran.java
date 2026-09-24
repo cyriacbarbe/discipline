@@ -211,4 +211,38 @@ public abstract class Ecran extends Activity {
             suite.run();
         }
     }
+
+    static Donnees.Groupe copieGroupe(Donnees.Groupe g) {
+        try {
+            return Donnees.Groupe.de(g.json());
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    static JSONObject changementGroupe(Donnees.Groupe g, boolean suppression) {
+        try {
+            JSONObject ch = Donnees.changement("groupe", g.id);
+            return suppression ? ch : ch.put("groupe", g.json());
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Retirer des applis d'un groupe utilisé par une limite active assouplit : anti-triche. */
+    void modifierGroupe(Donnees.Groupe g, boolean suppression, Runnable apres) {
+        JSONObject ch = changementGroupe(g, suppression);
+        Donnees.Groupe ancien = donnees.groupes.get(g.id);
+        boolean assouplit = ancien != null && donnees.groupeUtilise(g.id)
+                && (suppression || !g.paquets.containsAll(ancien.paquets));
+        if (assouplit) {
+            garde(ch, (suppression ? "supprimer" : "retirer des applis de") + " « " + ancien.nom + " »", apres);
+        } else {
+            donnees.appliquer(ch);
+            if (apres != null) {
+                apres.run();
+            }
+            rafraichir();
+        }
+    }
 }

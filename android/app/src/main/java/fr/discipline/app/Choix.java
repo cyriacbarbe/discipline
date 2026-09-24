@@ -36,17 +36,15 @@ final class Choix {
     private static final class Element {
         final String id;
         final String nom;
-        final String detail;
         final boolean groupe;
+        String detail = "";
         /** Groupe : ses applis les plus utilisées, dont les icônes défilent. */
-        final List<String> carrousel;
+        List<String> carrousel;
 
-        Element(String id, String nom, String detail, boolean groupe, List<String> carrousel) {
+        Element(String id, String nom, boolean groupe) {
             this.id = id;
             this.nom = nom;
-            this.detail = detail;
             this.groupe = groupe;
-            this.carrousel = carrousel;
         }
     }
 
@@ -69,6 +67,24 @@ final class Choix {
         return v;
     }
 
+    /** Recalcule les détails (taille des groupes, pastilles des applis) : au départ et après un changement de groupe. */
+    private static void completer(Donnees d, List<Element> tous, Map<String, Long> temps) {
+        for (Element e : tous) {
+            if (!e.groupe) {
+                List<String> noms = new ArrayList<>();
+                for (Donnees.Groupe g : d.groupesDe(e.id)) {
+                    noms.add("● " + g.nom);
+                }
+                e.detail = String.join("   ", noms);
+            } else {
+                Donnees.Groupe g = d.groupes.get(e.id);
+                Set<String> paquets = g == null ? new HashSet<>() : g.paquets;
+                e.detail = "Groupe · " + paquets.size() + " appli(s)";
+                e.carrousel = plusUtilisees(paquets, temps);
+            }
+        }
+    }
+
     /** Icône de l'élément ; pour un groupe, celle du carrousel au tour {@code tour}. */
     private static void montrerIcone(Activity a, ImageView v, Element e, int tour) {
         String paquet = !e.groupe ? e.id
@@ -80,24 +96,20 @@ final class Choix {
      * Choix multiple d'applis et, si {@code groupes} n'est pas null, de groupes.
      * Chaque appli montre ses groupes en pastilles. Les ensembles sont modifiés à la validation.
      */
-    static void cibles(Activity a, String titre, Set<String> applis, Set<String> groupes, Runnable ok) {
+    static void cibles(Ecran a, String titre, Set<String> applis, Set<String> groupes, Runnable ok) {
         Donnees d = Donnees.get(a);
+        long maintenant = System.currentTimeMillis();
+        Map<String, Long> temps = Journal.get(a).tempsParAppli(maintenant - 7 * 24 * 3600_000L, maintenant);
         List<Element> tous = new ArrayList<>();
         if (groupes != null) {
-            long maintenant = System.currentTimeMillis();
-            Map<String, Long> temps = Journal.get(a).tempsParAppli(maintenant - 7 * 24 * 3600_000L, maintenant);
             for (Donnees.Groupe g : d.groupes.values()) {
-                tous.add(new Element(g.id, g.nom, "Groupe · " + g.paquets.size() + " appli(s)", true,
-                        plusUtilisees(g.paquets, temps)));
+                tous.add(new Element(g.id, g.nom, true));
             }
         }
         for (AppInfo app : Applications.installees(a.getPackageManager(), a.getPackageName())) {
-            List<String> noms = new ArrayList<>();
-            for (Donnees.Groupe g : d.groupesDe(app.paquet)) {
-                noms.add("● " + g.nom);
-            }
-            tous.add(new Element(app.paquet, app.nom, String.join("   ", noms), false, null));
+            tous.add(new Element(app.paquet, app.nom, false));
         }
+        completer(d, tous, temps);
         Set<String> applisCochees = new HashSet<>(applis);
         Set<String> groupesCoches = groupes == null ? new HashSet<>() : new HashSet<>(groupes);
         List<Element> visibles = new ArrayList<>(tous);
@@ -141,11 +153,28 @@ final class Choix {
                     textes.addView(Ui.corps(a, ""));
                     textes.addView(Ui.texte(a, "", 12, Ui.VERT, false));
                     Ui.etirer(ligne, textes);
+                    TextView modifier = Ui.texte(a, "✎", 20, Ui.TEXTE2, false);
+                    modifier.setPadding(Ui.dp(a, 14), Ui.dp(a, 6), Ui.dp(a, 6), Ui.dp(a, 6));
+                    ligne.addView(modifier);
                 } else {
                     ligne = (LinearLayout) recyclee;
                 }
                 Element e = visibles.get(i);
                 ligne.setTag(e);
+                // ✎ d'un groupe : ajouter ou retirer ses applis sans quitter ce choix.
+                TextView modifier = (TextView) ligne.getChildAt(3);
+                modifier.setVisibility(e.groupe ? View.VISIBLE : View.GONE);
+                modifier.setOnClickListener(e.groupe ? v -> {
+                    Donnees.Groupe g = d.groupes.get(e.id);
+                    if (g == null) {
+                        return;
+                    }
+                    Donnees.Groupe copie = Ecran.copieGroupe(g);
+                    cibles(a, g.nom, copie.paquets, null, () -> a.modifierGroupe(copie, false, () -> {
+                        completer(d, tous, temps);
+                        notifyDataSetChanged();
+                    }));
+                } : null);
                 ImageView ic = (ImageView) ligne.getChildAt(1);
                 ic.animate().cancel();
                 ic.setAlpha(1f);
