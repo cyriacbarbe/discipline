@@ -23,6 +23,26 @@ public class ParametresActivity extends Ecran {
         rafraichir();
     }
 
+    /** Jour efface aussi l'heure, semaine efface tout : c'est un assouplissement, donc gardé par l'anti-triche. */
+    private void remettreAZero() {
+        String[] choix = {"L’heure en cours", "La journée", "La semaine"};
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Repartir de zéro pour…")
+                .setItems(choix, (d, u) -> {
+                    try {
+                        garde(Donnees.changement("remise", "").put("unite", u),
+                                "remettre à zéro " + choix[u].toLowerCase(java.util.Locale.FRANCE), () -> {
+                                    Widget.mettreAJour(this);
+                                    rafraichir();
+                                });
+                    } catch (org.json.JSONException ignore) {
+                        // clé fixe : n'arrive pas
+                    }
+                })
+                .setNegativeButton("Annuler", null)
+                .show();
+    }
+
     @Override
     protected void rafraichir() {
         LinearLayout c = page("Paramètres", true);
@@ -81,7 +101,15 @@ public class ParametresActivity extends Ecran {
             vacances.addView(Ui.petit(this, "Suspend toutes les limites jusqu’au jour choisi (inclus)."));
         }
 
+        LinearLayout remise = Ui.ajouter(c, Ui.carte(this), 8);
+        long derniere = donnees.remise(Periode.HEURE);
+        remise.addView(Ui.lien(this, "↺ Remettre les compteurs à zéro",
+                derniere > 0 ? "dernière : " + Donnees.dateCourte(derniere) : "", v -> remettreAZero()));
+        remise.addView(Ui.petit(this, "Temps, ouvertures, sessions et pauses repartent de 0 pour l’heure, "
+                + "la journée ou la semaine en cours. L’historique, lui, est gardé."));
+
         LinearLayout liens = Ui.ajouter(c, Ui.carte(this), 8);
+        liens.addView(Ui.lien(this, "Widget d’accueil", "", v -> startActivity(new Intent(this, WidgetActivity.class))));
         liens.addView(Ui.lien(this, "Historique d’usage", Historique.autorise(this) ? "" : "accès à autoriser",
                 v -> startActivity(new Intent(this, HistoriqueActivity.class))));
         liens.addView(Ui.lien(this, "Groupes", String.valueOf(donnees.groupes.size()),

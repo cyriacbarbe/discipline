@@ -134,3 +134,26 @@ fait avec ET.
 - **Widget** : temps du jour, limites qui bloquent ou comptent (5 lignes),
   bouton « Concentration » qui lance la limite à blocage immédiat (l'accueil
   s'il y en a plusieurs). Rafraîchi chaque minute par le service.
+
+## v1.3 — plus naturel
+
+- **Ajouter une limite** part d'une intention (« Limiter mon temps », « Quelques
+  sessions par jour », « Bloquer complètement », « Bloquer à certaines heures »
+  = temps 0 de 22:00 à 07:00…), puis ouvre tout de suite le choix des applis.
+- **Édition** : une phrase en tête dit ce que fera la limite ; sections Sur quoi
+  / Règle / Quand ; réglettes − / + (pas de 1 sous 10 min, 5 jusqu'à 2 h, 15
+  au-delà ; toucher la valeur pour la taper) ; période et jours en pastilles ;
+  nom, sites, combinaisons ET/OU, dates exclues, action, messages, rallonge,
+  bulles et options rangés dans « Plus de réglages ».
+- **Zéro autorisé** pour temps, ouvertures, sessions, durées, pauses, friction,
+  rallonges ; 0 = bloquée tant que la limite s'applique.
+- **Accueil** : chaque carte dit sa règle en phrase et montre une jauge du
+  premier quota (vert, orange à 80 %, rouge) ; roue ⚙ agrandie.
+- **Écran de blocage** : la raison chiffrée (« Tu as déjà utilisé tes 3
+  sessions aujourd'hui »), la règle en clair et la liste des sessions de la
+  période (HH:MM → HH:MM, durée, total). Les messages perso restent en tête.
+- **Remise à zéro** (⚙) de l'heure, de la journée ou de la semaine : un
+  horodatage par unité (`etats.remise`) sert de début de comptage ; jour efface
+  aussi l'heure, semaine tout. C'est un assouplissement : passe par l'anti-triche.
+- **⚙ > Widget d'accueil** : l'ajouter (`requestPinAppWidget`), choisir ce qu'il
+  montre (temps, limites, concentration) et quelles limites.

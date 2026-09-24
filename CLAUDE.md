@@ -58,3 +58,5 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
 - v1.2 : se bloquer mieux (strict, frictions, sites, noir et blanc…),
   déclencheurs de profil, personne de confiance, bilan hebdo, widget — détail
   en fin de `docs/CAHIER_DES_CHARGES.md`.
+- v1.3 : limites plus naturelles (intentions, réglettes, jauges), zéro permis,
+  écran de blocage détaillé, remise à zéro, réglage du widget.

@@ -238,6 +238,62 @@ final class Ui {
         return r;
     }
 
+    /** Rangée « libellé   − valeur + » : les boutons ajustent d'un pas, toucher la valeur la fait saisir. */
+    static LinearLayout reglette(Context c, String libelle, String valeur, View.OnClickListener moins,
+                                 View.OnClickListener plus, View.OnClickListener saisir) {
+        LinearLayout r = rangee(c);
+        r.setPadding(0, dp(c, 8), 0, dp(c, 8));
+        etirer(r, corps(c, libelle));
+        r.addView(rond(c, "−", moins));
+        TextView v = texte(c, valeur, 17, TEXTE, true);
+        v.setMinWidth(dp(c, 84));
+        v.setGravity(Gravity.CENTER);
+        v.setPadding(dp(c, 6), dp(c, 8), dp(c, 6), dp(c, 8));
+        v.setOnClickListener(saisir);
+        r.addView(v);
+        r.addView(rond(c, "+", plus));
+        return r;
+    }
+
+    private static TextView rond(Context c, String t, View.OnClickListener clic) {
+        TextView b = texte(c, t, 22, TEXTE, true);
+        b.setGravity(Gravity.CENTER);
+        b.setBackground(fond(c, CARTE2, 21));
+        int s = dp(c, 42);
+        b.setLayoutParams(new LinearLayout.LayoutParams(s, s));
+        b.setOnClickListener(clic);
+        return b;
+    }
+
+    /** Choix unique en pastilles côte à côte (courts libellés). */
+    static LinearLayout puces(Context c, String[] libelles, int choisi, IntConsumer choix) {
+        LinearLayout r = rangee(c);
+        for (int i = 0; i < libelles.length; i++) {
+            TextView p = texte(c, libelles[i], 15, TEXTE, i == choisi);
+            p.setGravity(Gravity.CENTER);
+            p.setBackground(fond(c, i == choisi ? VERT : CARTE2, 14));
+            p.setPadding(dp(c, 12), dp(c, 9), dp(c, 12), dp(c, 9));
+            final int index = i;
+            p.setOnClickListener(v -> choix.accept(index));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+            lp.leftMargin = i == 0 ? 0 : dp(c, 6);
+            r.addView(p, lp);
+        }
+        return r;
+    }
+
+    /** Barre de progression : la part consommée, dans la couleur donnée. */
+    static LinearLayout jauge(Context c, float part, int couleur) {
+        LinearLayout j = rangee(c);
+        j.setBackground(fond(c, CARTE2, 4));
+        float p = Math.max(0f, Math.min(1f, part));
+        View plein = new View(c);
+        plein.setBackground(fond(c, couleur, 4));
+        j.addView(plein, new LinearLayout.LayoutParams(0, dp(c, 8), p));
+        j.addView(new View(c), new LinearLayout.LayoutParams(0, dp(c, 8), 1f - p));
+        return j;
+    }
+
     static String duree(long ms) {
         if (ms < 0) {
             ms = 0;

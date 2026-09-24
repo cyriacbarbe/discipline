@@ -30,6 +30,10 @@ final class Moteur {
         long tempsDuJour;
         int ouverturesDuJour;
         boolean rallongeEnCours;
+        /** Premier quota de la limite et ce qui en est consommé (ms pour le temps, nombre sinon). */
+        Condition jauge;
+        long jaugeFait;
+        long jaugeMax;
     }
 
     private final Donnees d;
@@ -103,6 +107,8 @@ final class Moteur {
             }
         }
 
+        jauge(r, l, sessions, cibles, maintenant);
+
         // ET lie plus fort que OU : on parcourt des groupes ET séparés par des OU.
         boolean respecteeGlobale = false;
         long meilleurDispo = Long.MAX_VALUE;
@@ -150,6 +156,29 @@ final class Moteur {
         return null;
     }
 
+    /** Début du compte d'une condition : sa période, ou la dernière remise à zéro si elle est plus récente. */
+    long debutCompte(Condition c, long maintenant) {
+        return Math.max(c.periode.debut(maintenant), d.remise(c.periode.unite));
+    }
+
+    /** Ce qui est consommé du premier quota (temps, ouvertures, sessions), pour la jauge de l'accueil. */
+    private void jauge(Resultat r, Limite l, List<long[]> sessions, Set<String> cibles, long maintenant) {
+        for (Condition c : l.conditions) {
+            if (c.type == Condition.TEMPS) {
+                r.jauge = c;
+                r.jaugeMax = c.valeurDuJour(maintenant) * 60_000L;
+                r.jaugeFait = tempsCompte(l, cibles, debutCompte(c, maintenant), maintenant);
+                return;
+            }
+            if (c.type == Condition.OUVERTURES || c.type == Condition.SESSIONS) {
+                r.jauge = c;
+                r.jaugeMax = c.valeurDuJour(maintenant);
+                r.jaugeFait = compterDepuis(l, sessions, debutCompte(c, maintenant));
+                return;
+            }
+        }
+    }
+
     private static int compterDepuis(List<long[]> sessions, long debut) {
         int n = 0;
         for (long[] s : sessions) {
@@ -187,10 +216,10 @@ final class Moteur {
 
     private boolean respectee(Limite l, Condition c, List<long[]> sessions, long[] courante, Set<String> cibles,
                               long maintenant, long tolerance, long[] detail) {
-        long duree = courante == null ? 0 : maintenant - courante[0];
+        long duree = courante == null ? 0 : maintenant - Math.max(courante[0], d.remise(Periode.HEURE));
         switch (c.type) {
             case Condition.TEMPS: {
-                long utilise = tempsCompte(l, cibles, c.periode.debut(maintenant), maintenant);
+                long utilise = tempsCompte(l, cibles, debutCompte(c, maintenant), maintenant);
                 long restant = c.valeurDuJour(maintenant) * 60_000L - utilise;
                 detail[0] = glissante(c) ? dispoGlissante(l, cibles, maintenant, utilise - c.valeurDuJour(maintenant) * 60_000L)
                         : c.periode.fin(maintenant);
@@ -198,12 +227,12 @@ final class Moteur {
                 return restant > 0;
             }
             case Condition.OUVERTURES: {
-                int ouvertures = compterDepuis(l, sessions, c.periode.debut(maintenant)) + (courante == null ? 1 : 0);
+                int ouvertures = compterDepuis(l, sessions, debutCompte(c, maintenant)) + (courante == null ? 1 : 0);
                 detail[0] = c.periode.fin(maintenant);
                 if (glissante(c)) {
                     // Il faut que sortent de la fenêtre assez d'ouvertures anciennes.
                     int enTrop = ouvertures - c.valeurDuJour(maintenant);
-                    long debut = c.periode.debut(maintenant);
+                    long debut = debutCompte(c, maintenant);
                     for (long[] s : sessions) {
                         if (s[0] >= debut && --enTrop <= 0) {
                             detail[0] = s[0] + 3_600_000L;
@@ -220,7 +249,7 @@ final class Moteur {
                 return courante == null || restant > 0;
             }
             case Condition.SESSIONS: {
-                int nombre = compterDepuis(l, sessions, c.periode.debut(maintenant)) + (courante == null ? 1 : 0);
+                int nombre = compterDepuis(l, sessions, debutCompte(c, maintenant)) + (courante == null ? 1 : 0);
                 if (nombre > c.valeurDuJour(maintenant)) {
                     detail[0] = c.periode.fin(maintenant);
                     return false;
@@ -237,6 +266,9 @@ final class Moteur {
                     return true;
                 }
                 long[] precedente = sessions.get(indexPrecedente);
+                if (precedente[1] < d.remise(Periode.HEURE)) {
+                    return true; // remise à zéro depuis : plus de pause due
+                }
                 long attente = c.type == Condition.PAUSE ? c.valeur * 60_000L
                         : (long) ((precedente[1] - precedente[0]) * c.coef);
                 long reference = courante == null ? maintenant : courante[0];
@@ -269,7 +301,7 @@ final class Moteur {
     /** Heure glissante : quand assez de temps ancien sera sorti de la fenêtre d'une heure. */
     private long dispoGlissante(Limite l, Set<String> cibles, long maintenant, long enTrop) {
         long aSortir = Math.max(1, enTrop + 1000);
-        long debut = maintenant - 3_600_000L;
+        long debut = Math.max(maintenant - 3_600_000L, d.remise(Periode.HEURE));
         for (Journal.Intervalle i : j.entre(cibles, debut, maintenant)) {
             long a = Math.max(i.debut, debut);
             long b = Math.min(i.fin, maintenant);
@@ -306,7 +338,8 @@ final class Moteur {
         if (l.rallongeMinutes <= 0) {
             return 0;
         }
-        long debut = l.periodeReference(d).debut(maintenant);
+        Periode ref = l.periodeReference(d);
+        long debut = Math.max(ref.debut(maintenant), d.remise(ref.unite));
         JSONArray prises = d.etat(l.id).optJSONArray("rallonges");
         int utilisees = 0;
         for (int i = 0; prises != null && i < prises.length(); i++) {

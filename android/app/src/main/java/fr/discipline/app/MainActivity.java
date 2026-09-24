@@ -36,7 +36,9 @@ public class MainActivity extends Ecran {
     @Override
     protected void rafraichir() {
         LinearLayout c = page("Discipline", false);
-        actionEntete("⚙", v -> startActivity(new Intent(this, ParametresActivity.class)));
+        TextView reglages = actionEntete("⚙", v -> startActivity(new Intent(this, ParametresActivity.class)));
+        reglages.setTextSize(28);
+        reglages.setPadding(Ui.dp(this, 16), 0, Ui.dp(this, 4), 0);
         long maintenant = Horloge.maintenant();
 
         if (miseAJour != null) {
@@ -239,7 +241,7 @@ public class MainActivity extends Ecran {
         carte.addView(r);
         LinearLayout textes = Ui.etirer(r, Ui.colonne(this));
         textes.addView(Ui.texte(this, l.nomAffiche(donnees), 16, Ui.TEXTE, true));
-        textes.addView(Ui.petit(this, l.resumeConditions()));
+        textes.addView(Ui.petit(this, l.phrase()));
         TextView etat = Ui.texte(this, "", 13, Ui.TEXTE2, true);
         etat.setPadding(0, Ui.dp(this, 4), 0, 0);
         textes.addView(etat);
@@ -251,6 +253,15 @@ public class MainActivity extends Ecran {
             Moteur.Resultat res = moteur.evaluer(l, maintenant);
             etat.setText(etatLisible(res, maintenant));
             etat.setTextColor(res.bloque ? Ui.ROUGE : Ui.VERT);
+            if (res.jauge != null && res.jaugeMax > 0) {
+                float part = (float) res.jaugeFait / res.jaugeMax;
+                Ui.ajouter(carte, Ui.jauge(this, part, part >= 1 ? Ui.ROUGE : part >= 0.8f ? Ui.ORANGE : Ui.VERT), 10);
+                boolean temps = res.jauge.type == Condition.TEMPS;
+                String unite = res.jauge.type == Condition.OUVERTURES ? " ouvertures" : res.jauge.type == Condition.SESSIONS
+                        ? " sessions" : "";
+                Ui.ajouter(carte, Ui.petit(this, (temps ? Ui.duree(res.jaugeFait) + " sur " + Ui.duree(res.jaugeMax)
+                        : res.jaugeFait + " sur " + res.jaugeMax + unite) + " " + res.jauge.periode.enCours()), 4);
+            }
         }
         Switch s = Ui.interrupteur(this, l.active);
         s.setOnCheckedChangeListener((b, coche) -> {

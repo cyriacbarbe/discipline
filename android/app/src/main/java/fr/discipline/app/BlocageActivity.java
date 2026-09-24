@@ -13,6 +13,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.text.Normalizer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
@@ -113,7 +116,12 @@ public class BlocageActivity extends Ecran {
                     : "Bipe ton badge contre le téléphone pour l’ouvrir.");
         } else {
             titre.setText("✋ " + appli);
-            texte.setText(message(r, appli, maintenant));
+            texte.setText(limite.messages.isEmpty() ? constat(r, appli, maintenant) : message(r, appli, maintenant));
+            if (!limite.messages.isEmpty()) {
+                Ui.ajouter(c, Ui.texte(this, constat(r, appli, maintenant), 15, Ui.TEXTE2, false), 10)
+                        .setGravity(Gravity.CENTER);
+            }
+            historique(c, r, moteur, maintenant);
             if (limite.afficherDispo && r.dispoA > maintenant) {
                 TextView dispo = Ui.ajouter(c, Ui.texte(this, "", 20, Ui.VERT, true), 24);
                 dispo.setGravity(Gravity.CENTER);
@@ -137,6 +145,85 @@ public class BlocageActivity extends Ecran {
 
         Button fermer = Ui.ajouter(c, Ui.boutonDiscret(this, "Fermer"), 32);
         fermer.setOnClickListener(v -> fermer());
+    }
+
+    /** Pourquoi c'est fermé, dit avec les chiffres de la règle choisie. */
+    private String constat(Moteur.Resultat r, String appli, long maintenant) {
+        Condition c = r.cause;
+        if (c == null) {
+            return "Limite atteinte.";
+        }
+        int n = c.valeurDuJour(maintenant);
+        String periode = c.periode.enCours();
+        boolean jaugeDeLaCause = r.jauge == c && r.jaugeMax > 0;
+        switch (c.type) {
+            case Condition.SESSIONS:
+                if (n == 0) {
+                    return "Aucune session n’est autorisée " + periode + ".";
+                }
+                if (jaugeDeLaCause && r.jaugeFait < r.jaugeMax) {
+                    return "Ta session a atteint ses " + Condition.minutes(c.valeur2) + ".";
+                }
+                return "Tu as déjà utilisé tes " + n + " session" + (n > 1 ? "s" : "") + " " + periode + ".";
+            case Condition.OUVERTURES:
+                return n == 0 ? "Aucune ouverture n’est autorisée " + periode + "."
+                        : "Tu as déjà ouvert " + appli + " " + n + " fois " + periode + ", c’est ton maximum.";
+            case Condition.TEMPS:
+                if (n == 0) {
+                    return "Tu as choisi de ne pas l’ouvrir " + limite.quand() + ".";
+                }
+                return "Tu as passé " + (jaugeDeLaCause ? Ui.duree(r.jaugeFait) : Condition.minutes(n)) + " sur "
+                        + Condition.minutes(n) + " autorisées " + periode + ".";
+            case Condition.DUREE_SESSION:
+                return "Tu as atteint tes " + Condition.minutes(n) + " d’affilée.";
+            case Condition.PAUSE:
+                return "Tu t’es donné " + Condition.minutes(c.valeur) + " de pause entre deux usages.";
+            case Condition.PAUSE_PROPORTIONNELLE:
+                return "Une pause à la mesure du temps que tu viens d’y passer.";
+            case Condition.IMMEDIAT:
+                return "Tu as lancé un blocage de " + Condition.minutes(c.valeur) + ".";
+            default:
+                return "Limite atteinte.";
+        }
+    }
+
+    /** Ta règle en clair, puis tes sessions de la période : de quelle heure à quelle heure. */
+    private void historique(LinearLayout c, Moteur.Resultat r, Moteur moteur, long maintenant) {
+        LinearLayout regle = Ui.ajouter(c, Ui.carte(this), 24);
+        regle.addView(Ui.section(this, "Ta règle"));
+        regle.addView(Ui.corps(this, limite.nomAffiche(donnees) + " : " + limite.phrase()));
+
+        Condition cause = r.cause;
+        boolean semaine = cause != null && cause.aPeriode() && cause.periode.unite == Periode.SEMAINE;
+        long depuis = cause != null && cause.aPeriode() ? moteur.debutCompte(cause, maintenant)
+                : Math.max(new Periode().debut(maintenant), donnees.remise(Periode.JOUR));
+        List<long[]> sessions = Journal.get(this).sessions(donnees.cibles(limite), depuis, maintenant,
+                donnees.toleranceSecondes * 1000L);
+        LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
+        String periode = cause != null && cause.aPeriode() ? cause.periode.enCours() : "aujourd’hui";
+        carte.addView(Ui.section(this, "Tes sessions " + periode));
+        if (sessions.isEmpty()) {
+            carte.addView(Ui.petit(this, "Aucune."));
+            return;
+        }
+        SimpleDateFormat f = new SimpleDateFormat(semaine ? "EEE HH:mm" : "HH:mm", Locale.FRANCE);
+        SimpleDateFormat h = new SimpleDateFormat("HH:mm", Locale.FRANCE);
+        long total = 0;
+        for (long[] s : sessions) {
+            total += s[1] - s[0];
+        }
+        int debut = Math.max(0, sessions.size() - 8);
+        if (debut > 0) {
+            carte.addView(Ui.petit(this, "… et " + debut + " plus tôt"));
+        }
+        for (int i = debut; i < sessions.size(); i++) {
+            long[] s = sessions.get(i);
+            LinearLayout ligne = Ui.ajouter(carte, Ui.rangee(this), 4);
+            Ui.etirer(ligne, Ui.corps(this, (i + 1) + ".  " + f.format(new Date(s[0])) + " → " + h.format(new Date(s[1]))));
+            ligne.addView(Ui.petit(this, Ui.duree(s[1] - s[0])));
+        }
+        Ui.ajouter(carte, Ui.petit(this, sessions.size() + " session" + (sessions.size() > 1 ? "s" : "")
+                + ", " + Ui.duree(total) + " en tout"), 8);
     }
 
     private String message(Moteur.Resultat r, String appli, long maintenant) {

@@ -72,6 +72,8 @@ public class Widget extends AppWidgetProvider {
             }
         }
         v.setTextViewText(R.id.widget_temps, Ui.duree(total));
+        v.setViewVisibility(R.id.widget_haut, d.widgetTemps ? View.VISIBLE : View.GONE);
+        v.setViewVisibility(R.id.widget_etats, d.widgetLimites ? View.VISIBLE : View.GONE);
 
         StringBuilder etats = new StringBuilder();
         int lignes = 0;
@@ -79,7 +81,7 @@ public class Widget extends AppWidgetProvider {
         Condition aLancer = null;
         boolean vacances = d.enVacances(maintenant);
         for (Limite l : d.limites) {
-            if (!l.active || l.conditions.isEmpty()) {
+            if (!l.active || l.conditions.isEmpty() || d.widgetCachees.contains(l.id)) {
                 continue;
             }
             Condition im = l.conditionDeType(Condition.IMMEDIAT);
@@ -118,7 +120,7 @@ public class Widget extends AppWidgetProvider {
                 new Intent(c, HistoriqueActivity.class), drapeaux));
         v.setOnClickPendingIntent(R.id.widget_etats, PendingIntent.getActivity(c, 2,
                 new Intent(c, MainActivity.class), drapeaux));
-        if (lancables == 0) {
+        if (lancables == 0 || !d.widgetConcentration) {
             v.setViewVisibility(R.id.widget_lancer, View.GONE);
         } else {
             v.setViewVisibility(R.id.widget_lancer, View.VISIBLE);

@@ -19,10 +19,16 @@ import java.util.function.IntConsumer;
 public class LimiteEditActivity extends Ecran {
     static final String EXTRA_ID = "id";
     static final String EXTRA_TYPE = "type";
+    /** Point de départ choisi dans « Que veux-tu faire ? » (null = la règle telle quelle). */
+    static final String EXTRA_MODELE = "modele";
+    static final String MODELE_BLOQUER = "bloquer";
+    static final String MODELE_HORAIRES = "horaires";
     private static final int IMAGE = 1;
 
     private Limite l;
     private boolean nouvelle;
+    /** « Plus de réglages » déplié. */
+    private boolean plus;
 
     @Override
     protected void onCreate(Bundle etat) {
@@ -33,9 +39,21 @@ public class LimiteEditActivity extends Ecran {
         } else {
             nouvelle = true;
             l = new Limite();
-            l.conditions.add(Condition.nouvelle(getIntent().getIntExtra(EXTRA_TYPE, Condition.TEMPS)));
+            Condition cond = Condition.nouvelle(getIntent().getIntExtra(EXTRA_TYPE, Condition.TEMPS));
+            String modele = getIntent().getStringExtra(EXTRA_MODELE);
+            if (MODELE_BLOQUER.equals(modele) || MODELE_HORAIRES.equals(modele)) {
+                cond.valeur = 0;
+            }
+            if (MODELE_HORAIRES.equals(modele)) {
+                l.plages.add(new int[]{22 * 60, 7 * 60});
+            }
+            l.conditions.add(cond);
         }
         rafraichir();
+        if (nouvelle && etat == null) {
+            // la première question est toujours « sur quoi ? »
+            Choix.cibles(this, "Ce que vise la limite", l.applis, l.groupes, this::rafraichir);
+        }
     }
 
     @Override
@@ -45,47 +63,65 @@ public class LimiteEditActivity extends Ecran {
             actionEntete("Supprimer", v -> supprimer());
         }
 
-        LinearLayout general = Ui.ajouter(c, Ui.carte(this), 12);
-        general.addView(Ui.lien(this, "Nom", l.nom.isEmpty() ? "(automatique)" : l.nom,
-                v -> Choix.texte(this, "Nom de la limite", l.nom, l.nomAffiche(donnees), t -> {
-                    l.nom = t;
-                    rafraichir();
-                })));
-        CheckBox sauf = Ui.caseACocher(this, "Tout le téléphone, sauf…", l.toutSauf);
-        sauf.setOnCheckedChangeListener((b, coche) -> {
-            l.toutSauf = coche;
-            rafraichir();
-        });
-        general.addView(sauf);
+        // En une phrase : ce que la limite fera, mis à jour à chaque réglage.
+        LinearLayout resume = Ui.ajouter(c, Ui.carte(this), 12);
+        resume.setBackground(Ui.fond(this, Ui.CARTE2, 22));
+        resume.addView(Ui.texte(this, l.applis.isEmpty() && l.groupes.isEmpty() && !l.toutSauf && l.sites.isEmpty()
+                ? "Aucune appli choisie" : l.nomAffiche(donnees), 18, Ui.TEXTE, true));
+        Ui.ajouter(resume, Ui.corps(this, l.phrase()), 4);
+
+        Ui.ajouter(c, Ui.section(this, "Sur quoi"), 16);
+        LinearLayout general = Ui.ajouter(c, Ui.carte(this), 8);
         general.addView(Ui.lien(this, l.toutSauf ? "Applis épargnées" : "Applis et groupes",
                 l.toutSauf && l.applis.isEmpty() && l.groupes.isEmpty() ? "aucune" : resumeCibles(),
                 v -> Choix.cibles(this, l.toutSauf ? "Ce que la limite épargne" : "Ce que vise la limite",
                         l.applis, l.groupes, this::rafraichir)));
         if (!l.applis.isEmpty() || !l.groupes.isEmpty()) {
-            general.addView(Ui.petit(this, l.nomAffiche(donnees).equals(l.nom) ? nomsCibles() : l.nomAffiche(donnees)));
+            general.addView(Ui.petit(this, nomsCibles()));
         }
+        CheckBox sauf = Ui.caseACocher(this, "Tout le téléphone, sauf ces applis", l.toutSauf);
+        sauf.setOnCheckedChangeListener((b, coche) -> {
+            l.toutSauf = coche;
+            rafraichir();
+        });
+        general.addView(sauf);
         if (l.toutSauf) {
             general.addView(Ui.petit(this, "Les nouvelles applis sont visées d’office ; le téléphone (appels), "
                     + "les Réglages, l’accueil et Discipline restent libres."));
         }
-        sites(general);
 
-        Ui.ajouter(c, Ui.section(this, "Règles"), 20);
+        Ui.ajouter(c, Ui.section(this, l.conditions.size() > 1 ? "Règles" : "Règle"), 16);
         for (int i = 0; i < l.conditions.size(); i++) {
             if (i > 0) {
                 operateur(c, i - 1);
             }
             condition(c, i);
         }
-        Ui.ajouter(c, Ui.boutonDiscret(this, "＋ Combiner avec une autre règle"), 10).setOnClickListener(v -> combiner());
 
-        exceptions(c);
-        action(c);
-        rallonge(c);
-        bulles(c);
-        options(c);
-        if (!nouvelle) {
-            Ui.ajouter(c, Ui.boutonDiscret(this, "Dupliquer cette limite"), 20).setOnClickListener(v -> dupliquer());
+        quand(c);
+
+        Ui.ajouter(c, Ui.boutonDiscret(this, plus ? "Moins de réglages  ▴" : "Plus de réglages  ▾"), 20)
+                .setOnClickListener(v -> {
+                    plus = !plus;
+                    rafraichir();
+                });
+        if (plus) {
+            LinearLayout nom = Ui.ajouter(c, Ui.carte(this), 12);
+            nom.addView(Ui.lien(this, "Nom", l.nom.isEmpty() ? "(automatique)" : l.nom,
+                    v -> Choix.texte(this, "Nom de la limite", l.nom, l.nomAffiche(donnees), t -> {
+                        l.nom = t;
+                        rafraichir();
+                    })));
+            sites(nom);
+            Ui.ajouter(c, Ui.boutonDiscret(this, "＋ Combiner avec une autre règle"), 10).setOnClickListener(v -> combiner());
+            datesExclues(c);
+            action(c);
+            rallonge(c);
+            bulles(c);
+            options(c);
+            if (!nouvelle) {
+                Ui.ajouter(c, Ui.boutonDiscret(this, "Dupliquer cette limite"), 20).setOnClickListener(v -> dupliquer());
+            }
         }
 
         boutonBas(c, "Enregistrer", v -> enregistrer());
@@ -182,20 +218,23 @@ public class LimiteEditActivity extends Ecran {
 
         switch (cond.type) {
             case Condition.TEMPS:
-                reglage(carte, "Temps autorisé", cond.valeur, "min", x -> cond.valeur = Math.max(1, x));
+                reglette(carte, "Temps autorisé", cond.valeur, MIN, 0, x -> cond.valeur = x);
+                if (cond.valeur == 0) {
+                    Ui.ajouter(carte, Ui.petit(this, "0 min : l’appli reste fermée tant que la limite s’applique."), 2);
+                }
                 break;
             case Condition.OUVERTURES:
-                reglage(carte, "Ouvertures autorisées", cond.valeur, "", x -> cond.valeur = Math.max(0, x));
+                reglette(carte, "Ouvertures", cond.valeur, "fois", 0, x -> cond.valeur = x);
                 break;
             case Condition.DUREE_SESSION:
-                reglage(carte, "Durée maximale d’une session", cond.valeur, "min", x -> cond.valeur = Math.max(1, x));
+                reglette(carte, "D’affilée au plus", cond.valeur, MIN, 0, x -> cond.valeur = x);
                 break;
             case Condition.SESSIONS:
-                reglage(carte, "Nombre de sessions", cond.valeur, "", x -> cond.valeur = Math.max(1, x));
-                reglage(carte, "Durée maximale de chacune", cond.valeur2, "min", x -> cond.valeur2 = Math.max(1, x));
+                reglette(carte, "Sessions", cond.valeur, "", 0, x -> cond.valeur = x);
+                reglette(carte, "De", cond.valeur2, MIN, 0, x -> cond.valeur2 = x);
                 break;
             case Condition.PAUSE:
-                reglage(carte, "Pause après usage", cond.valeur, "min", x -> cond.valeur = Math.max(1, x));
+                reglette(carte, "Pause", cond.valeur, MIN, 0, x -> cond.valeur = x);
                 break;
             case Condition.PAUSE_PROPORTIONNELLE:
                 carte.addView(Ui.lien(this, "Coefficient", String.format(Locale.FRANCE, "× %.2f", cond.coef),
@@ -217,7 +256,7 @@ public class LimiteEditActivity extends Ecran {
                     rafraichir();
                 }));
                 if (cond.modeFriction == Condition.FRICTION_ATTENTE) {
-                    reglage(carte, "Compte à rebours", cond.valeur, "s", x -> cond.valeur = Math.max(1, x));
+                    reglette(carte, "Compte à rebours", cond.valeur, "s", 0, x -> cond.valeur = x);
                     CheckBox doubler = Ui.caseACocher(this, "Doubler l’attente à chaque ouverture du jour (10 min au plus)",
                             cond.doubler);
                     doubler.setOnCheckedChangeListener((b, coche) -> cond.doubler = coche);
@@ -227,7 +266,7 @@ public class LimiteEditActivity extends Ecran {
                 }
                 break;
             case Condition.IMMEDIAT:
-                reglage(carte, "Durée du blocage", cond.valeur, "min", x -> cond.valeur = Math.max(1, x));
+                reglette(carte, "Durée du blocage", cond.valeur, MIN, 1, x -> cond.valeur = x);
                 Ui.ajouter(carte, Ui.petit(this, "Se lance depuis l’accueil avec le bouton « Bloque-moi ça »."), 4);
                 break;
             case Condition.NFC:
@@ -238,7 +277,7 @@ public class LimiteEditActivity extends Ecran {
                     rafraichir();
                 }));
                 if (cond.modeNfc == Condition.NFC_MINUTES) {
-                    reglage(carte, "Minutes de déblocage", cond.valeur2, "min", x -> cond.valeur2 = Math.max(1, x));
+                    reglette(carte, "Débloquée pendant", cond.valeur2, MIN, 1, x -> cond.valeur2 = x);
                 }
                 if (donnees.badges.isEmpty()) {
                     Ui.ajouter(carte, Ui.texte(this, "Aucun badge enregistré : ajoute-le dans ⚙ > Badges NFC.",
@@ -295,27 +334,53 @@ public class LimiteEditActivity extends Ecran {
                 .show();
     }
 
-    private void reglage(LinearLayout parent, String libelle, int valeur, String unite, IntConsumer suite) {
-        parent.addView(Ui.lien(this, libelle, valeur + (unite.isEmpty() ? "" : " " + unite),
+    /** Unité « minutes » d'une réglette : affichée « 1 h 30 », pas de 1 sous 10 min, de 5 ensuite, de 15 dès 2 h. */
+    private static final String MIN = "min";
+
+    /** Réglette − valeur + ; toucher la valeur permet de la taper. */
+    private void reglette(LinearLayout parent, String libelle, int valeur, String unite, int min, IntConsumer suite) {
+        boolean minutes = MIN.equals(unite);
+        String affiche = minutes ? Condition.minutes(valeur) : valeur + (unite.isEmpty() ? "" : " " + unite);
+        parent.addView(Ui.reglette(this, libelle, affiche,
+                v -> {
+                    suite.accept(Math.max(min, pas(valeur, false, minutes, "s".equals(unite))));
+                    rafraichir();
+                },
+                v -> {
+                    suite.accept(pas(valeur, true, minutes, "s".equals(unite)));
+                    rafraichir();
+                },
                 v -> Choix.nombre(this, libelle + (unite.isEmpty() ? "" : " (" + unite + ")"), valeur, x -> {
                     if (x >= 0) {
-                        suite.accept(x);
+                        suite.accept(Math.max(min, x));
                     }
                     rafraichir();
                 })));
     }
 
+    /** Valeur suivante (ou précédente), arrondie au pas pour tomber sur des chiffres ronds. */
+    private static int pas(int v, boolean monter, boolean minutes, boolean secondes) {
+        int base = monter ? v : v - 1;
+        int p = secondes ? 5 : !minutes ? 1 : base < 10 ? 1 : base < 120 ? 5 : 15;
+        return Math.max(0, monter ? (v / p + 1) * p : ((v - 1) / p) * p);
+    }
+
     private void periode(LinearLayout carte, Periode p) {
-        Ui.ajouter(carte, Ui.corps(this, "Période"), 10);
-        carte.addView(Ui.choixUnique(this, new String[]{"heure", "jour", "semaine"}, p.unite, x -> {
+        Ui.ajouter(carte, Ui.puces(this, new String[]{"par heure", "par jour", "par semaine"}, p.unite, x -> {
             p.unite = x;
             rafraichir();
-        }));
+        }), 8);
         if (p.unite == Periode.HEURE) {
             CheckBox g = Ui.caseACocher(this, "Glissante (les 60 dernières minutes)", p.glissante);
-            g.setOnCheckedChangeListener((b, coche) -> p.glissante = coche);
+            g.setOnCheckedChangeListener((b, coche) -> {
+                p.glissante = coche;
+                rafraichir();
+            });
             carte.addView(g);
             return;
+        }
+        if (!plus && p.debutMinutes == 0 && (p.unite == Periode.JOUR || p.jourSemaine == java.util.Calendar.MONDAY)) {
+            return; // minuit, lundi : réglage courant, rangé dans « Plus de réglages »
         }
         if (p.unite == Periode.SEMAINE) {
             carte.addView(Ui.lien(this, "Commence le", Periode.JOURS[Periode.indexJour(p.jourSemaine)],
@@ -331,6 +396,9 @@ public class LimiteEditActivity extends Ecran {
     }
 
     private void parJour(LinearLayout carte, Condition cond) {
+        if (!plus && cond.parJour == null) {
+            return;
+        }
         CheckBox varie = Ui.ajouter(carte, Ui.caseACocher(this, "Valeur différente selon le jour", cond.parJour != null), 6);
         varie.setOnCheckedChangeListener((b, coche) -> {
             if (coche) {
@@ -383,30 +451,38 @@ public class LimiteEditActivity extends Ecran {
 
     // ---- Exceptions --------------------------------------------------------
 
-    private void exceptions(LinearLayout c) {
-        Ui.ajouter(c, Ui.section(this, "Quand elle s’applique"), 20);
+    private void quand(LinearLayout c) {
+        Ui.ajouter(c, Ui.section(this, "Quand"), 16);
         LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
-        carte.addView(Ui.corps(this, "Jours"));
-        LinearLayout jours = Ui.ajouter(carte, Ui.rangee(this), 8);
+        int[] raccourcis = {0x7F, 0x1F, 0x60};
+        int choisi = -1;
+        for (int i = 0; i < raccourcis.length; i++) {
+            if (l.jours == raccourcis[i]) {
+                choisi = i;
+            }
+        }
+        carte.addView(Ui.puces(this, new String[]{"Tous les jours", "En semaine", "Week-end"}, choisi, x -> {
+            l.jours = raccourcis[x];
+            rafraichir();
+        }));
+        LinearLayout jours = Ui.ajouter(carte, Ui.rangee(this), 10);
         String[] lettres = {"L", "M", "M", "J", "V", "S", "D"};
         for (int j = 0; j < 7; j++) {
             final int bit = 1 << j;
-            TextView p = Ui.pastille(this, " " + lettres[j] + " ", (l.jours & bit) != 0 ? Ui.VERT : Ui.CARTE2);
+            TextView p = Ui.pastille(this, lettres[j], (l.jours & bit) != 0 ? Ui.VERT : Ui.CARTE2);
             p.setTextSize(15);
+            p.setGravity(android.view.Gravity.CENTER);
+            p.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
             p.setOnClickListener(v -> {
                 l.jours ^= bit;
                 rafraichir();
             });
-            jours.addView(p);
-            if (j < 6) {
-                jours.addView(Ui.petit(this, "  "));
-            }
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+            lp.leftMargin = j == 0 ? 0 : Ui.dp(this, 4);
+            jours.addView(p, lp);
         }
 
-        Ui.ajouter(carte, Ui.corps(this, "Plages horaires"), 14);
-        if (l.plages.isEmpty()) {
-            carte.addView(Ui.petit(this, "Toute la journée."));
-        }
+        Ui.ajouter(carte, Ui.corps(this, l.plages.isEmpty() ? "Toute la journée" : "Aux heures"), 14);
         for (int[] p : new ArrayList<>(l.plages)) {
             LinearLayout r = Ui.rangee(this);
             Ui.etirer(r, Ui.corps(this, "de " + Ui.heure(p[0]) + " à " + Ui.heure(p[1])));
@@ -416,15 +492,22 @@ public class LimiteEditActivity extends Ecran {
             }));
             carte.addView(r);
         }
-        carte.addView(Ui.lien(this, "＋ Ajouter une plage", null, v -> Choix.heure(this, 9 * 60, debut -> {
-            toast("Et l’heure de fin ?");
-            Choix.heure(this, Math.min(debut + 120, 23 * 60 + 59), fin -> {
-                l.plages.add(new int[]{debut, fin});
-                rafraichir();
-            });
-        })));
+        carte.addView(Ui.lien(this, l.plages.isEmpty() ? "＋ Seulement à certaines heures" : "＋ Ajouter une plage", null,
+                v -> Choix.heure(this, 9 * 60, debut -> {
+                    toast("Et l’heure de fin ?");
+                    Choix.heure(this, Math.min(debut + 120, 23 * 60 + 59), fin -> {
+                        l.plages.add(new int[]{debut, fin});
+                        rafraichir();
+                    });
+                })));
+    }
 
-        Ui.ajouter(carte, Ui.corps(this, "Dates exclues"), 14);
+    private void datesExclues(LinearLayout c) {
+        Ui.ajouter(c, Ui.section(this, "Dates où elle ne s’applique pas"), 20);
+        LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
+        if (l.datesExclues.isEmpty()) {
+            carte.addView(Ui.petit(this, "Aucune (les vacances se règlent dans ⚙)."));
+        }
         for (long[] d : new ArrayList<>(l.datesExclues)) {
             LinearLayout r = Ui.rangee(this);
             String texte = d[0] == d[1] ? "le " + jour(d[0]) : "du " + jour(d[0]) + " au " + jour(d[1]);
@@ -571,8 +654,8 @@ public class LimiteEditActivity extends Ecran {
         if (l.rallongeMinutes <= 0) {
             return;
         }
-        reglage(carte, "Nombre par période", l.rallongeNombre, "fois", x -> l.rallongeNombre = Math.max(1, x));
-        reglage(carte, "Attente avant de l’obtenir", l.rallongeAttente, "s", x -> l.rallongeAttente = Math.max(0, x));
+        reglette(carte, "Par période", l.rallongeNombre, "fois", 0, x -> l.rallongeNombre = x);
+        reglette(carte, "Attente avant", l.rallongeAttente, "s", 0, x -> l.rallongeAttente = x);
         CheckBox nfc = Ui.caseACocher(this, "Exiger un bip du badge", l.rallongeNfc);
         nfc.setOnCheckedChangeListener((b, coche) -> l.rallongeNfc = coche);
         carte.addView(nfc);

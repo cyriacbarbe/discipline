@@ -85,6 +85,14 @@ class Periode {
         return "par semaine (dès le " + JOURS[indexJour(jourSemaine)] + " " + Ui.heure(debutMinutes) + ")";
     }
 
+    /** « aujourd’hui », « cette semaine »… pour parler de la période en cours. */
+    String enCours() {
+        if (unite == HEURE) {
+            return glissante ? "sur la dernière heure" : "cette heure-ci";
+        }
+        return unite == JOUR ? "aujourd’hui" : "cette semaine";
+    }
+
     JSONObject json() throws Exception {
         return new JSONObject().put("u", unite).put("g", glissante).put("d", debutMinutes).put("j", jourSemaine);
     }

@@ -78,6 +78,11 @@ final class Donnees {
     final Set<String> suiviesApplis = new TreeSet<>();
     final Set<String> suiviesGroupes = new TreeSet<>();
     long vacancesJusquA;
+    /** Widget d'accueil : ce qu'il montre, et les limites qu'il tait. */
+    boolean widgetTemps = true;
+    boolean widgetLimites = true;
+    boolean widgetConcentration = true;
+    final Set<String> widgetCachees = new TreeSet<>();
 
     int delaiAssouplissement;
     boolean nfcPourModifier;
@@ -147,6 +152,7 @@ final class Donnees {
         auto.clear();
         suiviesApplis.clear();
         suiviesGroupes.clear();
+        widgetCachees.clear();
         try {
             // appelé pendant le parcours des changements en attente : ne pas y toucher
             JSONObject r = new JSONObject(o.toString());
@@ -198,6 +204,13 @@ final class Donnees {
         lireChaines(o.optJSONArray("suiviesApplis"), suiviesApplis);
         lireChaines(o.optJSONArray("suiviesGroupes"), suiviesGroupes);
         vacancesJusquA = o.optLong("vacances");
+        JSONObject w = o.optJSONObject("widget");
+        if (w != null) {
+            widgetTemps = w.optBoolean("temps", true);
+            widgetLimites = w.optBoolean("limites", true);
+            widgetConcentration = w.optBoolean("conc", true);
+            lireChaines(w.optJSONArray("cachees"), widgetCachees);
+        }
         delaiAssouplissement = o.optInt("delai");
         nfcPourModifier = o.optBoolean("nfcModif");
         alerteAccessibilite = o.optBoolean("alerte");
@@ -273,6 +286,8 @@ final class Donnees {
                     .put("badges", new JSONObject(badges)).put("tolerance", toleranceSecondes)
                     .put("debutJournee", debutJourneeMinutes).put("suiviesApplis", new JSONArray(suiviesApplis))
                     .put("suiviesGroupes", new JSONArray(suiviesGroupes)).put("vacances", vacancesJusquA)
+                    .put("widget", new JSONObject().put("temps", widgetTemps).put("limites", widgetLimites)
+                            .put("conc", widgetConcentration).put("cachees", new JSONArray(widgetCachees)))
                     .put("delai", delaiAssouplissement).put("nfcModif", nfcPourModifier)
                     .put("alerte", alerteAccessibilite).put("strict", modeStrict).put("motifs", new JSONArray(motifs)).put("enAttente", new JSONArray(enAttente))
                     .put("etats", etats).put("compteurs", compteurs)
@@ -381,6 +396,11 @@ final class Donnees {
             }
         }
         return e;
+    }
+
+    /** Dernière remise à zéro des compteurs de cette unité (heure, jour, semaine), 0 = jamais. */
+    long remise(int unite) {
+        return etat("remise").optLong(String.valueOf(unite));
     }
 
     // ---- Journées et compteurs ---------------------------------------------
@@ -516,6 +536,18 @@ final class Donnees {
                     suiviesGroupes.remove(id);
                 } else {
                     groupes.put(id, Groupe.de(gj));
+                }
+                break;
+            }
+            case "remise": {
+                // repartir de zéro pour la semaine, c'est aussi repartir de zéro pour le jour et l'heure
+                JSONObject r = etat("remise");
+                try {
+                    for (int u = Periode.HEURE; u <= ch.optInt("unite"); u++) {
+                        r.put(String.valueOf(u), Horloge.maintenant());
+                    }
+                } catch (Exception ignore) {
+                    // clés non nulles
                 }
                 break;
             }

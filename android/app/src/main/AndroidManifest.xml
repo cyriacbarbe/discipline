@@ -75,6 +75,7 @@
         <activity android:name=".AntiTricheActivity" android:exported="false" />
         <activity android:name=".HistoriqueActivity" android:exported="false" />
         <activity android:name=".BilanActivity" android:exported="false" />
+        <activity android:name=".WidgetActivity" android:exported="false" />
 
         <activity
             android:name=".NfcActivity"

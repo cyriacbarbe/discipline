@@ -209,6 +209,39 @@ class Limite {
         return s.toString();
     }
 
+    /** « tous les jours », « en semaine, de 09:00 à 18:00 »… */
+    String quand() {
+        String j;
+        if (jours == 0x7F) {
+            j = "tous les jours";
+        } else if (jours == 0x1F) {
+            j = "en semaine";
+        } else if (jours == 0x60) {
+            j = "le week-end";
+        } else if (jours == 0) {
+            j = "aucun jour";
+        } else {
+            List<String> noms = new ArrayList<>();
+            for (int i = 0; i < 7; i++) {
+                if ((jours & (1 << i)) != 0) {
+                    noms.add(Periode.JOURS[i].substring(0, 3));
+                }
+            }
+            j = "le " + String.join(", ", noms);
+        }
+        List<String> heures = new ArrayList<>();
+        for (int[] p : plages) {
+            heures.add("de " + Ui.heure(p[0]) + " à " + Ui.heure(p[1]));
+        }
+        return heures.isEmpty() ? j : j + ", " + String.join(" et ", heures);
+    }
+
+    /** La limite en une phrase : « 30 min par jour, en semaine ». */
+    String phrase() {
+        String regles = resumeConditions();
+        return (regles.isEmpty() ? "" : Character.toUpperCase(regles.charAt(0)) + regles.substring(1) + ", ") + quand() + ".";
+    }
+
     String nomAffiche(Donnees d) {
         if (!nom.trim().isEmpty()) {
             return nom.trim();

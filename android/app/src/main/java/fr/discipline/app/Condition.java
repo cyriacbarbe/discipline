@@ -185,11 +185,13 @@ class Condition {
     String resume() {
         String variantes = parJour != null && aValeurParJour() ? " (varie selon le jour)" : "";
         switch (type) {
-            case TEMPS: return valeur + " min " + periode.libelle() + variantes;
-            case OUVERTURES: return valeur + " ouverture" + (valeur > 1 ? "s " : " ") + periode.libelle() + variantes;
-            case DUREE_SESSION: return valeur + " min d’affilée au plus" + variantes;
-            case SESSIONS: return valeur + " session" + (valeur > 1 ? "s" : "") + " de " + valeur2 + " min " + periode.libelle() + variantes;
-            case PAUSE: return "pause de " + valeur + " min après usage";
+            case TEMPS: return valeur == 0 && variantes.isEmpty() ? "bloquée" : minutes(valeur) + " " + periode.libelle() + variantes;
+            case OUVERTURES: return valeur == 0 && variantes.isEmpty() ? "bloquée"
+                    : valeur + " ouverture" + (valeur > 1 ? "s " : " ") + periode.libelle() + variantes;
+            case DUREE_SESSION: return minutes(valeur) + " d’affilée au plus" + variantes;
+            case SESSIONS: return valeur == 0 && variantes.isEmpty() ? "bloquée" : valeur + " session" + (valeur > 1 ? "s" : "")
+                    + " de " + minutes(valeur2) + " " + periode.libelle() + variantes;
+            case PAUSE: return "pause de " + minutes(valeur) + " après usage";
             case PAUSE_PROPORTIONNELLE: return "pause = temps passé × " + String.format(Locale.FRANCE, "%.2g", coef);
             case FRICTION:
                 if (modeFriction == FRICTION_PHRASE) {
@@ -209,6 +211,11 @@ class Condition {
                         : modeNfc == NFC_MINUTES ? valeur2 + " min" : "jusqu’à la fin de la période (" + periode.libelle() + ")");
             default: return "";
         }
+    }
+
+    /** « 0 min », « 45 min », « 1 h 30 ». */
+    static String minutes(int m) {
+        return m <= 0 ? "0 min" : Ui.duree(m * 60_000L);
     }
 
     JSONObject json() throws Exception {
