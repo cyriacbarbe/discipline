@@ -85,6 +85,8 @@ final class Donnees {
     final List<JSONObject> enAttente = new ArrayList<>();
     /** États des conditions et limites : déblocages NFC, passes, rallonges. */
     JSONObject etats = new JSONObject();
+    /** Raisons données pour ouvrir ou rallonger : {t, paquet, quoi, texte}, les 200 dernières. */
+    final List<JSONObject> motifs = new ArrayList<>();
     /** "aaaaMMjj" → {idLimite: [ouvertures autorisées, bloquées, rallonges]}. */
     JSONObject compteurs = new JSONObject();
 
@@ -190,6 +192,10 @@ final class Donnees {
             applisConnues = new HashSet<>();
             lireChaines(connues, applisConnues);
         }
+        JSONArray mts = o.optJSONArray("motifs");
+        for (int i = 0; mts != null && i < mts.length(); i++) {
+            motifs.add(mts.getJSONObject(i));
+        }
         JSONArray att = o.optJSONArray("enAttente");
         for (int i = 0; att != null && i < att.length(); i++) {
             enAttente.add(att.getJSONObject(i));
@@ -216,7 +222,7 @@ final class Donnees {
     /** Le réglage seul, sans l'état du téléphone : ce qu'on exporte. */
     synchronized JSONObject exporter() {
         JSONObject o = json();
-        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances"}) {
+        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances", "motifs"}) {
             o.remove(cle);
         }
         return o;
@@ -244,7 +250,7 @@ final class Donnees {
                     .put("debutJournee", debutJourneeMinutes).put("suiviesApplis", new JSONArray(suiviesApplis))
                     .put("suiviesGroupes", new JSONArray(suiviesGroupes)).put("vacances", vacancesJusquA)
                     .put("delai", delaiAssouplissement).put("nfcModif", nfcPourModifier)
-                    .put("alerte", alerteAccessibilite).put("strict", modeStrict).put("enAttente", new JSONArray(enAttente))
+                    .put("alerte", alerteAccessibilite).put("strict", modeStrict).put("motifs", new JSONArray(motifs)).put("enAttente", new JSONArray(enAttente))
                     .put("etats", etats).put("compteurs", compteurs);
             if (applisConnues != null) {
                 o.put("connues", new JSONArray(applisConnues));
@@ -367,6 +373,18 @@ final class Donnees {
     static final int BLOQUEES = 1;
     static final int RALLONGES = 2;
     static final int SOURDINE = 3;
+
+    synchronized void noterMotif(String paquet, String quoi, String texte) {
+        try {
+            motifs.add(new JSONObject().put("t", Horloge.maintenant()).put("paquet", paquet).put("quoi", quoi).put("texte", texte));
+            while (motifs.size() > 200) {
+                motifs.remove(0);
+            }
+            enregistrer();
+        } catch (Exception ignore) {
+            // motif perdu
+        }
+    }
 
     synchronized void compter(String idLimite, int quoi) {
         try {

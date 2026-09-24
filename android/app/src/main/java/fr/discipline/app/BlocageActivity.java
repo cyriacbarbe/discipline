@@ -1,15 +1,19 @@
 package fr.discipline.app;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.text.Normalizer;
+import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -101,7 +105,7 @@ public class BlocageActivity extends Ecran {
             titre.setText(appli + " est de nouveau disponible");
             Ui.ajouter(c, Ui.boutonPlein(this, "Ouvrir " + appli), 32).setOnClickListener(v -> ouvrirAppli());
         } else if (type == Condition.FRICTION) {
-            friction(c, titre, texte, r.cause, moteur, appli);
+            friction(c, titre, texte, r.cause, moteur, appli, r.ouverturesDuJour + 1);
         } else if (type == Condition.NFC) {
             titre.setText("🔒 " + appli);
             texte.setText(donnees.badges.isEmpty()
@@ -149,27 +153,92 @@ public class BlocageActivity extends Ecran {
                 .replace("{rallonges}", String.valueOf(new Moteur(this).rallongesRestantes(limite, maintenant)));
     }
 
-    private void friction(LinearLayout c, TextView titre, TextView texte, Condition cause, Moteur moteur, String appli) {
+    private static final String[] PHRASES = {
+            "Je choisis ce que je fais de mon temps.",
+            "Ce que je vais y trouver peut attendre.",
+            "Je peux faire autre chose de plus utile maintenant.",
+            "Mon attention est précieuse, je la garde.",
+    };
+
+    private static void activer(Button b, boolean oui) {
+        b.setEnabled(oui);
+        b.setAlpha(oui ? 1f : 0.4f);
+    }
+
+    /** « Ce que je fais » et « ce que je  fais » se valent : casse, accents, espaces et ponctuation ignorés. */
+    private static String simplifier(String s) {
+        String sans = Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return sans.toLowerCase(Locale.FRANCE).replaceAll("[^a-z0-9]", "");
+    }
+
+    /** Champ dont l'Entrée ouvre, si c'est permis. */
+    private EditText champFriction(LinearLayout c, String indice, Button ouvrir) {
+        EditText champ = Ui.ajouter(c, Ui.champ(this, "", indice), 20);
+        champ.setOnEditorActionListener((v, action, ev) -> {
+            if (ouvrir.isEnabled()) {
+                ouvrir.performClick();
+            }
+            return true;
+        });
+        return champ;
+    }
+
+    private void friction(LinearLayout c, TextView titre, TextView texte, Condition cause, Moteur moteur,
+                          String appli, int ouverture) {
         titre.setText("Respire.");
         texte.setText("Tu veux vraiment ouvrir " + appli + " ?");
-        TextView compte = Ui.ajouter(c, Ui.texte(this, "", 56, Ui.TEXTE, true), 24);
-        compte.setGravity(Gravity.CENTER);
-        Button ouvrir = Ui.ajouter(c, Ui.boutonPlein(this, "Ouvrir " + appli), 24);
-        ouvrir.setEnabled(false);
-        ouvrir.setAlpha(0.4f);
+        Button ouvrir = Ui.boutonPlein(this, "Ouvrir " + appli);
+        activer(ouvrir, false);
+        EditText[] motif = new EditText[1];
         ouvrir.setOnClickListener(v -> {
+            if (motif[0] != null) {
+                donnees.noterMotif(paquet, "ouverture", motif[0].getText().toString().trim());
+            }
             moteur.accorderPasse(cause, Horloge.maintenant());
             ouvrirAppli();
         });
-        long fin = Horloge.maintenant() + cause.valeur * 1000L;
+        if (cause.modeFriction == Condition.FRICTION_PHRASE) {
+            String phrase = PHRASES[new Random().nextInt(PHRASES.length)];
+            Ui.ajouter(c, Ui.texte(this, "Recopie : « " + phrase + " »", 17, Ui.TEXTE, true), 24);
+            EditText champ = champFriction(c, "La phrase, mot pour mot", ouvrir);
+            Ui.surChangement(champ, s -> activer(ouvrir, simplifier(s).equals(simplifier(phrase))));
+            Ui.ajouter(c, ouvrir, 24);
+            return;
+        }
+        if (cause.modeFriction == Condition.FRICTION_POURQUOI) {
+            Ui.ajouter(c, Ui.texte(this, "Pour quoi faire ?", 17, Ui.TEXTE, true), 24);
+            motif[0] = champFriction(c, "Ce que je viens y chercher", ouvrir);
+            Ui.surChangement(motif[0], s -> activer(ouvrir, s.trim().length() >= 10));
+            Ui.ajouter(c, Ui.petit(this, "Dix caractères au moins. Tes réponses sont gardées dans les statistiques de la limite."), 8);
+            Ui.ajouter(c, ouvrir, 24);
+            return;
+        }
+        if (cause.modeFriction == Condition.FRICTION_CALCUL) {
+            Random hasard = new Random();
+            int a = 12 + hasard.nextInt(38);
+            int b = 3 + hasard.nextInt(7);
+            Ui.ajouter(c, Ui.texte(this, a + " × " + b + " = ?", 32, Ui.TEXTE, true), 24);
+            EditText champ = champFriction(c, "Résultat", ouvrir);
+            champ.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+            Ui.surChangement(champ, s -> activer(ouvrir, s.trim().equals(String.valueOf(a * b))));
+            Ui.ajouter(c, ouvrir, 24);
+            return;
+        }
+        TextView compte = Ui.ajouter(c, Ui.texte(this, "", 56, Ui.TEXTE, true), 24);
+        compte.setGravity(Gravity.CENTER);
+        Ui.ajouter(c, ouvrir, 24);
+        int secondes = cause.secondesFriction(ouverture);
+        if (secondes > cause.valeur) {
+            Ui.ajouter(c, Ui.petit(this, ouverture + "e ouverture aujourd’hui : l’attente double à chaque fois."), 8);
+        }
+        long fin = Horloge.maintenant() + secondes * 1000L;
         minuterie = new Runnable() {
             @Override
             public void run() {
                 long reste = fin - Horloge.maintenant();
                 if (reste <= 0) {
                     compte.setText("✓");
-                    ouvrir.setEnabled(true);
-                    ouvrir.setAlpha(1f);
+                    activer(ouvrir, true);
                     return;
                 }
                 compte.setText(String.valueOf((reste + 999) / 1000));
@@ -188,22 +257,68 @@ public class BlocageActivity extends Ecran {
             Ui.ajouter(c, Ui.petit(this, "Plus de rallonge possible pour cette période."), 24);
             return;
         }
-        Button b = Ui.ajouter(c, Ui.bouton(this, "＋" + limite.rallongeMinutes + " min (encore " + restantes + ")", Ui.ORANGE), 24);
+        int attente = limite.rallongeAttente;
+        if (limite.rallongeProgressive) {
+            // Chaque rallonge du jour double l'attente de la suivante (30 min au plus).
+            int prises = donnees.compteur(limite.id, donnees.cleJour(maintenant), Donnees.RALLONGES);
+            attente = Math.max(attente, 15);
+            for (int i = 0; i < prises && attente < 1800; i++) {
+                attente *= 2;
+            }
+            attente = Math.min(attente, 1800);
+        }
+        String prix = attente > 0 ? " — " + Ui.duree(attente * 1000L) + " d’attente" : "";
+        Button b = Ui.ajouter(c, Ui.bouton(this, "＋" + limite.rallongeMinutes + " min (encore " + restantes + ")" + prix,
+                Ui.ORANGE), 24);
+        int attenteFinale = attente;
         b.setOnClickListener(v -> {
             b.setEnabled(false);
-            attendre(b, limite.rallongeAttente, () -> {
+            attendre(b, attenteFinale, () -> {
+                b.setEnabled(true);
                 Runnable accorder = () -> {
                     moteur.accorderRallonge(limite, Horloge.maintenant());
                     ouvrirAppli();
                 };
-                if (limite.rallongeNfc) {
-                    demanderBadge("La rallonge demande un bip du badge.", accorder);
+                Runnable badge = limite.rallongeNfc
+                        ? () -> demanderBadge("La rallonge demande un bip du badge.", accorder) : accorder;
+                if (limite.rallongeMotif) {
+                    demanderMotif(badge);
                 } else {
-                    accorder.run();
+                    badge.run();
                 }
-                b.setEnabled(true);
             });
         });
+    }
+
+    /** La rallonge se justifie : le motif est gardé avec les statistiques de la limite. */
+    private void demanderMotif(Runnable suite) {
+        EditText champ = Ui.champ(this, "", "Pourquoi j’en ai besoin");
+        int p = Ui.dp(this, 20);
+        LinearLayout cadre = Ui.colonne(this);
+        cadre.setPadding(p, p / 2, p, 0);
+        cadre.addView(champ);
+        AlertDialog d = new AlertDialog.Builder(this)
+                .setTitle("Rallonge : pour quoi faire ?")
+                .setView(cadre)
+                .setPositiveButton("Valider", null)
+                .setNegativeButton("Annuler", null)
+                .create();
+        Runnable valider = () -> {
+            String motif = champ.getText().toString().trim();
+            if (motif.length() < 10) {
+                toast("Dix caractères au moins.");
+                return;
+            }
+            donnees.noterMotif(paquet, "rallonge", motif);
+            d.dismiss();
+            suite.run();
+        };
+        champ.setOnEditorActionListener((v, action, ev) -> {
+            valider.run();
+            return true;
+        });
+        d.setOnShowListener(x -> d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> valider.run()));
+        d.show();
     }
 
     private void attendre(Button b, int secondes, Runnable suite) {
