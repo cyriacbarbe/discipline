@@ -30,6 +30,7 @@ public class MainActivity extends Ecran {
         rafraichir();
         verifierMiseAJour();
         Surveillance.planifier(this);
+        Historique.importerEnFond(this, () -> runOnUiThread(this::rafraichir));
     }
 
     @Override
@@ -46,6 +47,9 @@ public class MainActivity extends Ecran {
         }
         if (!Surveillance.serviceActif(this)) {
             miseEnRoute(c);
+        }
+        if (!Historique.autorise(this)) {
+            carteAccesUsage(this, c);
         }
         if (donnees.enVacances(maintenant)) {
             LinearLayout v = Ui.ajouter(c, Ui.carte(this), 12);
@@ -85,6 +89,23 @@ public class MainActivity extends Ecran {
                 + "mesure le temps passé et bloque les applis."), 12);
         Ui.ajouter(m, Ui.boutonPlein(this, "Ouvrir l’accessibilité"), 8).setOnClickListener(v ->
                 startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+    }
+
+    /** « Accès aux données d'utilisation » : ce qui permet de récupérer l'usage d'avant Discipline. */
+    static void carteAccesUsage(Ecran a, LinearLayout c) {
+        LinearLayout m = Ui.ajouter(c, Ui.carte(a), 12);
+        m.addView(Ui.titre(a, "📜 Récupérer ton historique d’usage"));
+        Ui.ajouter(m, Ui.petit(a, "Android garde le détail des ~10 derniers jours et des totaux sur plusieurs mois, "
+                + "voire années. Autorise « Discipline » dans « Accès aux données d’utilisation » pour les reprendre. "
+                + "Le détail s’efface au fil des jours côté Android : mieux vaut le faire vite."), 8);
+        Ui.ajouter(m, Ui.boutonPlein(a, "Autoriser l’accès"), 8).setOnClickListener(v -> {
+            Intent direct = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:" + a.getPackageName()));
+            try {
+                a.startActivity(direct);
+            } catch (android.content.ActivityNotFoundException e) {
+                a.startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+            }
+        });
     }
 
     /** Propose de ranger dans un groupe les applis installées depuis la dernière visite. */

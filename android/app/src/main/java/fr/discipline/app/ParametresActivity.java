@@ -60,6 +60,8 @@ public class ParametresActivity extends Ecran {
         }
 
         LinearLayout liens = Ui.ajouter(c, Ui.carte(this), 8);
+        liens.addView(Ui.lien(this, "Historique d’usage", Historique.autorise(this) ? "" : "accès à autoriser",
+                v -> startActivity(new Intent(this, HistoriqueActivity.class))));
         liens.addView(Ui.lien(this, "Groupes", String.valueOf(donnees.groupes.size()),
                 v -> startActivity(new Intent(this, GroupesActivity.class))));
         liens.addView(Ui.lien(this, "Bibliothèque de messages", String.valueOf(donnees.messages.size()),

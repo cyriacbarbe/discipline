@@ -15,12 +15,11 @@ import java.util.Set;
 
 /**
  * Journal d'usage tenu par le service d'accessibilité : chaque passage d'une
- * appli au premier plan (paquet, début, fin), gardé 35 jours dans un fichier
- * texte et en mémoire. C'est la source de tous les comptes : temps, sessions,
+ * appli au premier plan (paquet, début, fin), gardé pour toujours dans un
+ * fichier texte et en mémoire, complété vers le passé par {@link Historique}. C'est la source de tous les comptes : temps, sessions,
  * ouvertures, statistiques de l'accueil.
  */
 final class Journal {
-    private static final long CONSERVATION = 35L * 86_400_000L;
     private static Journal instance;
 
     static final class Intervalle {
@@ -50,24 +49,49 @@ final class Journal {
 
     private Journal(Context contexte) {
         fichier = new File(contexte.getFilesDir(), "journal.txt");
-        long limite = System.currentTimeMillis() - CONSERVATION;
+        // Un seul exemplaire de chaque nom de paquet : le journal garde tout l'historique.
+        Map<String, String> paquets = new HashMap<>();
         if (fichier.exists()) {
             try (BufferedReader lecteur = new BufferedReader(new FileReader(fichier))) {
                 String ligne;
                 while ((ligne = lecteur.readLine()) != null) {
                     String[] champs = ligne.split("\t");
                     if (champs.length == 3) {
-                        long fin = Long.parseLong(champs[2]);
-                        if (fin >= limite) {
-                            intervalles.add(new Intervalle(champs[0], Long.parseLong(champs[1]), fin));
-                        }
+                        String paquet = paquets.computeIfAbsent(champs[0], p -> p);
+                        intervalles.add(new Intervalle(paquet, Long.parseLong(champs[1]), Long.parseLong(champs[2])));
                     }
                 }
             } catch (IOException | NumberFormatException e) {
                 // journal abîmé : on garde ce qui a pu être lu
             }
         }
-        reecrire();
+    }
+
+    /** Début de la plus ancienne entrée (maintenant si le journal est vide). */
+    synchronized long premierDebut() {
+        if (!intervalles.isEmpty()) {
+            return intervalles.get(0).debut;
+        }
+        return paquetEnCours != null ? debutEnCours : System.currentTimeMillis();
+    }
+
+    /**
+     * Ajoute des passages plus anciens que tout le journal (historique d'Android),
+     * triés par début. Ceux qui chevauchent le journal sont ignorés. Rend le nombre ajouté.
+     */
+    synchronized int ajouterAnciens(List<Intervalle> anciens) {
+        long limite = premierDebut();
+        List<Intervalle> gardes = new ArrayList<>();
+        for (Intervalle i : anciens) {
+            if (i.fin <= limite) {
+                gardes.add(i);
+            }
+        }
+        if (!gardes.isEmpty()) {
+            intervalles.addAll(0, gardes);
+            reecrire();
+        }
+        return gardes.size();
     }
 
     private void reecrire() {

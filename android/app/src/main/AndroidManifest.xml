@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Lister les applis installées et reconnaître les écrans d'accueil,
          sans demander QUERY_ALL_PACKAGES. -->
@@ -18,6 +19,10 @@
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Historique d'usage gardé par Android (accordé à la main dans les réglages). -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
 
     <application
@@ -54,6 +59,7 @@
         <activity android:name=".MessagesActivity" android:exported="false" />
         <activity android:name=".ProfilsActivity" android:exported="false" />
         <activity android:name=".AntiTricheActivity" android:exported="false" />
+        <activity android:name=".HistoriqueActivity" android:exported="false" />
 
         <activity
             android:name=".NfcActivity"
