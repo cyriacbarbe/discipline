@@ -1,6 +1,7 @@
 package fr.discipline.app;
 
 import java.util.AbstractSet;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -9,7 +10,8 @@ import java.util.Set;
  * ne font que demander « ce paquet en fait-il partie ? »). Comprend :
  * <ul>
  * <li>les parties d'appli : « paquet#shorts » fait partie de « paquet » ;</li>
- * <li>les sites propres à la limite (« site:idLimite ») ;</li>
+ * <li>les sites : ceux de la liste de la limite, ses mots-clés, et le site
+ * de chaque appli visée (« site:youtube.com » fait partie de YouTube) ;</li>
  * <li>la liste blanche : tout sauf les exceptions et les applis toujours libres
  * (téléphone, Discipline…), nouvelles applis comprises.</li>
  * </ul>
@@ -18,13 +20,13 @@ import java.util.Set;
 final class Cibles extends AbstractSet<String> {
     private final Set<String> paquets;
     private final boolean sauf;
-    private final String site;
+    private final Collection<String> sites;
     private final Set<String> libres;
 
-    Cibles(Set<String> paquets, boolean sauf, String site, Set<String> libres) {
+    Cibles(Set<String> paquets, boolean sauf, Collection<String> sites, Set<String> libres) {
         this.paquets = paquets;
         this.sauf = sauf;
-        this.site = site;
+        this.sites = sites;
         this.libres = libres;
     }
 
@@ -40,10 +42,26 @@ final class Cibles extends AbstractSet<String> {
             return false;
         }
         String p = (String) o;
-        if (p.startsWith("site:")) {
-            return sauf || p.equals(site);
-        }
         String base = base(p);
+        if (p.startsWith("site:")) {
+            String hote = base.substring(5);
+            String partie = p.length() > base.length() ? p.substring(base.length() + 1) : null;
+            String appli = Sites.paquet(hote);
+            boolean appliVisee = appli != null && (paquets.contains(appli)
+                    || partie != null && paquets.contains(appli + "#" + partie));
+            if (sauf) {
+                return !appliVisee;
+            }
+            if (appliVisee || partie != null && sites.contains(partie)) {
+                return true;
+            }
+            for (String s : sites) {
+                if (Sites.couvre(s, hote)) {
+                    return true;
+                }
+            }
+            return false;
+        }
         if (sauf) {
             return !libres.contains(base) && !paquets.contains(p) && !paquets.contains(base);
         }

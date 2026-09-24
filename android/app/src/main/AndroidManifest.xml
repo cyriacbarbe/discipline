@@ -83,6 +83,29 @@
                 android:resource="@xml/config_accessibilite" />
         </service>
 
+        <!-- Accès aux notifications : couper le son d'une appli bloquée, sourdine. -->
+        <service
+            android:name=".Notifications"
+            android:exported="false"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Administrateur de l'appareil : empêche la désinstallation. -->
+        <receiver
+            android:name=".Admin"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".Surveillance"
             android:exported="false"

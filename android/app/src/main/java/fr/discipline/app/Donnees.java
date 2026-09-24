@@ -77,6 +77,8 @@ final class Donnees {
     int delaiAssouplissement;
     boolean nfcPourModifier;
     boolean alerteAccessibilite;
+    /** Mode strict : les pages des Réglages qui arrêteraient Discipline se referment. */
+    boolean modeStrict;
 
     /** null tant que l'appli n'a jamais relevé la liste des applis installées. */
     Set<String> applisConnues;
@@ -182,6 +184,7 @@ final class Donnees {
         delaiAssouplissement = o.optInt("delai");
         nfcPourModifier = o.optBoolean("nfcModif");
         alerteAccessibilite = o.optBoolean("alerte");
+        modeStrict = o.optBoolean("strict");
         JSONArray connues = o.optJSONArray("connues");
         if (connues != null) {
             applisConnues = new HashSet<>();
@@ -228,7 +231,7 @@ final class Donnees {
                     .put("debutJournee", debutJourneeMinutes).put("suiviesApplis", new JSONArray(suiviesApplis))
                     .put("suiviesGroupes", new JSONArray(suiviesGroupes)).put("vacances", vacancesJusquA)
                     .put("delai", delaiAssouplissement).put("nfcModif", nfcPourModifier)
-                    .put("alerte", alerteAccessibilite).put("enAttente", new JSONArray(enAttente))
+                    .put("alerte", alerteAccessibilite).put("strict", modeStrict).put("enAttente", new JSONArray(enAttente))
                     .put("etats", etats).put("compteurs", compteurs);
             if (applisConnues != null) {
                 o.put("connues", new JSONArray(applisConnues));
@@ -271,7 +274,7 @@ final class Donnees {
     }
 
     Set<String> cibles(Limite l) {
-        return new Cibles(paquetsDe(l.applis, l.groupes), l.toutSauf, l.sites.isEmpty() ? null : "site:" + l.id, libres());
+        return new Cibles(paquetsDe(l.applis, l.groupes), l.toutSauf, l.sites, libres());
     }
 
     private Set<String> libres;
@@ -350,6 +353,7 @@ final class Donnees {
     static final int AUTORISEES = 0;
     static final int BLOQUEES = 1;
     static final int RALLONGES = 2;
+    static final int SOURDINE = 3;
 
     synchronized void compter(String idLimite, int quoi) {
         try {
@@ -455,6 +459,9 @@ final class Donnees {
             case "import":
                 remplacer(ch.optJSONObject("reglages"));
                 break;
+            case "strict":
+                modeStrict = ch.optBoolean("valeur");
+                break;
             case "antitriche":
                 delaiAssouplissement = ch.optInt("delai");
                 nfcPourModifier = ch.optBoolean("nfc");
@@ -496,6 +503,19 @@ final class Donnees {
     synchronized void annulerEnAttente(JSONObject ch) {
         enAttente.remove(ch);
         enregistrer();
+    }
+
+    /** Mots-clés (entrées sans point) des limites actives, cherchés dans les adresses. */
+    Set<String> motsCles() {
+        Set<String> mots = new HashSet<>();
+        for (Limite l : limites) {
+            for (String s : l.active ? l.sites : Collections.<String>emptyList()) {
+                if (!s.contains(".")) {
+                    mots.add(s);
+                }
+            }
+        }
+        return mots;
     }
 
     // ---- NFC ---------------------------------------------------------------

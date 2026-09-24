@@ -62,6 +62,9 @@ final class Applications {
         if (paquet == null) {
             return "";
         }
+        if (paquet.startsWith("site:") || paquet.contains("#")) {
+            return Sites.nom(paquet, paquet.startsWith("site:") ? "" : nom(c, Cibles.base(paquet)));
+        }
         synchronized (NOMS) {
             String connu = NOMS.get(paquet);
             if (connu != null) {
@@ -84,6 +87,7 @@ final class Applications {
 
     /** Icône de l'appli (null si désinstallée), chargée une fois puis gardée en mémoire. */
     static Drawable icone(Context c, String paquet) {
+        paquet = Cibles.base(paquet);
         Drawable.ConstantState etat;
         synchronized (ICONES) {
             etat = ICONES.get(paquet);

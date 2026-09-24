@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Aucun pouvoir demandé : l'administrateur sert seulement à empêcher la désinstallation. -->
+<device-admin>
+    <uses-policies />
+</device-admin>

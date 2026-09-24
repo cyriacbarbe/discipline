@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Contenu des fenêtres : barre d'adresse des navigateurs, Shorts/Reels, pages
+     des Réglages (mode strict), fenêtres en image dans l'image ou écran partagé. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeWindowsChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:canRetrieveWindowContent="false"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
     android:notificationTimeout="100"
     android:description="@string/description_service" />
