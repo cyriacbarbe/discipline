@@ -51,11 +51,24 @@ public class LimiteEditActivity extends Ecran {
                     l.nom = t;
                     rafraichir();
                 })));
-        general.addView(Ui.lien(this, "Applis et groupes", resumeCibles(),
-                v -> Choix.cibles(this, "Ce que vise la limite", l.applis, l.groupes, this::rafraichir)));
+        CheckBox sauf = Ui.caseACocher(this, "Tout le téléphone, sauf…", l.toutSauf);
+        sauf.setOnCheckedChangeListener((b, coche) -> {
+            l.toutSauf = coche;
+            rafraichir();
+        });
+        general.addView(sauf);
+        general.addView(Ui.lien(this, l.toutSauf ? "Applis épargnées" : "Applis et groupes",
+                l.toutSauf && l.applis.isEmpty() && l.groupes.isEmpty() ? "aucune" : resumeCibles(),
+                v -> Choix.cibles(this, l.toutSauf ? "Ce que la limite épargne" : "Ce que vise la limite",
+                        l.applis, l.groupes, this::rafraichir)));
         if (!l.applis.isEmpty() || !l.groupes.isEmpty()) {
             general.addView(Ui.petit(this, l.nomAffiche(donnees).equals(l.nom) ? nomsCibles() : l.nomAffiche(donnees)));
         }
+        if (l.toutSauf) {
+            general.addView(Ui.petit(this, "Les nouvelles applis sont visées d’office ; le téléphone (appels), "
+                    + "les Réglages, l’accueil et Discipline restent libres."));
+        }
+        sites(general);
 
         Ui.ajouter(c, Ui.section(this, "Règles"), 20);
         for (int i = 0; i < l.conditions.size(); i++) {
@@ -70,6 +83,10 @@ public class LimiteEditActivity extends Ecran {
         action(c);
         rallonge(c);
         bulles(c);
+        options(c);
+        if (!nouvelle) {
+            Ui.ajouter(c, Ui.boutonDiscret(this, "Dupliquer cette limite"), 20).setOnClickListener(v -> dupliquer());
+        }
 
         boutonBas(c, "Enregistrer", v -> enregistrer());
     }
@@ -88,6 +105,31 @@ public class LimiteEditActivity extends Ecran {
             parts.add(n + " appli" + (n > 1 ? "s" : ""));
         }
         return String.join(", ", parts);
+    }
+
+    /** Sites (« youtube.com ») et mots-clés (« match ») cherchés dans la barre d'adresse. */
+    private void sites(LinearLayout carte) {
+        Ui.ajouter(carte, Ui.corps(this, l.toutSauf ? "Sites épargnés" : "Sites et mots-clés"), 14);
+        for (String s : new ArrayList<>(l.sites)) {
+            LinearLayout r = Ui.rangee(this);
+            Ui.etirer(r, Ui.corps(this, s.contains(".") ? s : "« " + s + " » dans l’adresse"));
+            r.addView(Ui.croix(this, v -> {
+                l.sites.remove(s);
+                rafraichir();
+            }));
+            carte.addView(r);
+        }
+        carte.addView(Ui.lien(this, "＋ Ajouter", null, v -> Choix.texte(this, "Site (lemonde.fr) ou mot-clé (foot)", "",
+                "youtube.com", t -> {
+                    String s = t.trim().toLowerCase(Locale.ROOT);
+                    s = s.contains(".") ? Sites.normaliser(s) : s;
+                    if (!s.isEmpty() && !l.sites.contains(s)) {
+                        l.sites.add(s);
+                    }
+                    rafraichir();
+                })));
+        carte.addView(Ui.petit(this, "Une appli visée vise aussi son site. Les mots-clés marchent dans Chrome, "
+                + "Firefox, Samsung Internet, Edge, Brave, Opera et DuckDuckGo."));
     }
 
     private String nomsCibles() {
@@ -169,7 +211,20 @@ public class LimiteEditActivity extends Ecran {
                                 })));
                 break;
             case Condition.FRICTION:
-                reglage(carte, "Compte à rebours", cond.valeur, "s", x -> cond.valeur = Math.max(1, x));
+                Ui.ajouter(carte, Ui.corps(this, "Avant d’ouvrir, il faut :"), 10);
+                carte.addView(Ui.choixUnique(this, Condition.MODES_FRICTION, cond.modeFriction, x -> {
+                    cond.modeFriction = x;
+                    rafraichir();
+                }));
+                if (cond.modeFriction == Condition.FRICTION_ATTENTE) {
+                    reglage(carte, "Compte à rebours", cond.valeur, "s", x -> cond.valeur = Math.max(1, x));
+                    CheckBox doubler = Ui.caseACocher(this, "Doubler l’attente à chaque ouverture du jour (10 min au plus)",
+                            cond.doubler);
+                    doubler.setOnCheckedChangeListener((b, coche) -> cond.doubler = coche);
+                    carte.addView(doubler);
+                } else if (cond.modeFriction == Condition.FRICTION_POURQUOI) {
+                    Ui.ajouter(carte, Ui.petit(this, "Tes réponses sont gardées (les 200 dernières)."), 4);
+                }
                 break;
             case Condition.IMMEDIAT:
                 reglage(carte, "Durée du blocage", cond.valeur, "min", x -> cond.valeur = Math.max(1, x));
@@ -188,6 +243,8 @@ public class LimiteEditActivity extends Ecran {
                 if (donnees.badges.isEmpty()) {
                     Ui.ajouter(carte, Ui.texte(this, "Aucun badge enregistré : ajoute-le dans ⚙ > Badges NFC.",
                             13, Ui.ORANGE, false), 6);
+                } else {
+                    carte.addView(Ui.lien(this, "Badges qui l’ouvrent", resumeBadges(cond), v -> choisirBadges(cond)));
                 }
                 break;
             default:
@@ -199,6 +256,43 @@ public class LimiteEditActivity extends Ecran {
         if (cond.aValeurParJour()) {
             parJour(carte, cond);
         }
+    }
+
+    private String resumeBadges(Condition cond) {
+        if (cond.badges.isEmpty()) {
+            return "tous";
+        }
+        List<String> noms = new ArrayList<>();
+        for (String id : cond.badges) {
+            noms.add(donnees.badges.getOrDefault(id, "badge oublié"));
+        }
+        return String.join(", ", noms);
+    }
+
+    /** Aucun coché = n'importe quel badge enregistré. */
+    private void choisirBadges(Condition cond) {
+        String[] ids = donnees.badges.keySet().toArray(new String[0]);
+        String[] noms = new String[ids.length];
+        boolean[] coches = new boolean[ids.length];
+        for (int i = 0; i < ids.length; i++) {
+            noms[i] = donnees.badges.get(ids[i]);
+            coches[i] = cond.badges.contains(ids[i]);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Badges qui ouvrent cette règle")
+                .setMessage("Aucun coché : n’importe lequel.")
+                .setMultiChoiceItems(noms, coches, (d, i, coche) -> coches[i] = coche)
+                .setPositiveButton("Valider", (d, w) -> {
+                    cond.badges.clear();
+                    for (int i = 0; i < ids.length; i++) {
+                        if (coches[i]) {
+                            cond.badges.add(ids[i]);
+                        }
+                    }
+                    rafraichir();
+                })
+                .setNegativeButton("Annuler", null)
+                .show();
     }
 
     private void reglage(LinearLayout parent, String libelle, int valeur, String unite, IntConsumer suite) {
@@ -482,6 +576,47 @@ public class LimiteEditActivity extends Ecran {
         CheckBox nfc = Ui.caseACocher(this, "Exiger un bip du badge", l.rallongeNfc);
         nfc.setOnCheckedChangeListener((b, coche) -> l.rallongeNfc = coche);
         carte.addView(nfc);
+        CheckBox prog = Ui.caseACocher(this, "L’attente double à chaque rallonge du jour", l.rallongeProgressive);
+        prog.setOnCheckedChangeListener((b, coche) -> l.rallongeProgressive = coche);
+        carte.addView(prog);
+        CheckBox motif = Ui.caseACocher(this, "Dire pourquoi avant de l’obtenir", l.rallongeMotif);
+        motif.setOnCheckedChangeListener((b, coche) -> l.rallongeMotif = coche);
+        carte.addView(motif);
+    }
+
+    private void options(LinearLayout c) {
+        Ui.ajouter(c, Ui.section(this, "Options"), 20);
+        LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
+        CheckBox plage = Ui.caseACocher(this, "Ne compter le temps que pendant les jours et plages choisis", l.dansPlage);
+        plage.setOnCheckedChangeListener((b, coche) -> l.dansPlage = coche);
+        carte.addView(plage);
+        CheckBox silence = Ui.caseACocher(this, "Notifications en sourdine tant qu’elle bloque", l.silence);
+        silence.setOnCheckedChangeListener((b, coche) -> {
+            l.silence = coche;
+            if (coche && !Notifications.autorise(this)) {
+                toast("Il faut l’accès aux notifications : ⚙ > Anti-triche.");
+            }
+        });
+        carte.addView(silence);
+        CheckBox gris = Ui.caseACocher(this, "Écran en noir et blanc pendant l’usage", l.grisaille);
+        gris.setOnCheckedChangeListener((b, coche) -> {
+            l.grisaille = coche;
+            if (coche && !Grisaille.possible(this)) {
+                grisailleAide();
+            }
+        });
+        carte.addView(gris);
+    }
+
+    /** Le noir et blanc touche un réglage protégé d'Android : une seule commande depuis un PC suffit. */
+    private void grisailleAide() {
+        new AlertDialog.Builder(this)
+                .setTitle("Une autorisation à donner une fois")
+                .setMessage("Android réserve ce réglage : il faut le brancher une fois à un PC (débogage USB activé) "
+                        + "et taper :\n\nadb shell pm grant " + getPackageName()
+                        + " android.permission.WRITE_SECURE_SETTINGS\n\nEn attendant, la case est gardée mais sans effet.")
+                .setPositiveButton("Compris", null)
+                .show();
     }
 
     private void bulles(LinearLayout c) {
@@ -537,6 +672,20 @@ public class LimiteEditActivity extends Ecran {
             return;
         }
         garde(Donnees.changementLimite(l, false), "modifier « " + l.nomAffiche(donnees) + " »", this::finish);
+    }
+
+    /** Une copie de ce qui est à l'écran (modifications comprises), à régler puis enregistrer. */
+    private void dupliquer() {
+        Limite copie = l.copie();
+        copie.id = Donnees.nouvelId();
+        for (Condition cond : copie.conditions) {
+            cond.id = Donnees.nouvelId(); // compteurs et passes à part
+        }
+        copie.nom = l.nom.isEmpty() ? "" : l.nom + " (copie)";
+        l = copie;
+        nouvelle = true;
+        rafraichir();
+        toast("Copie prête : règle-la puis enregistre.");
     }
 
     private void supprimer() {

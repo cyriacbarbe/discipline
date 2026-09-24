@@ -106,8 +106,16 @@ final class Choix {
                 tous.add(new Element(g.id, g.nom, true));
             }
         }
+        Set<String> installees = new HashSet<>();
         for (AppInfo app : Applications.installees(a.getPackageManager(), a.getPackageName())) {
             tous.add(new Element(app.paquet, app.nom, false));
+            installees.add(app.paquet);
+        }
+        // Une partie seulement d'une appli (YouTube Shorts…), si l'appli est là.
+        for (String[] partie : Sites.PARTIES_CONNUES) {
+            if (installees.contains(Cibles.base(partie[0]))) {
+                tous.add(new Element(partie[0], partie[1], false));
+            }
         }
         completer(d, tous, temps);
         Set<String> applisCochees = new HashSet<>(applis);

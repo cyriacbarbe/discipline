@@ -75,6 +75,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
                 verifier(false);
                 secondaires(maintenant);
                 couperLeSon(maintenant);
+                grisaille(maintenant);
             }
             handler.postDelayed(this, TIC);
         }
@@ -90,6 +91,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
                 premierPlan = null;
                 cle = null;
                 journal.fermer(maintenant);
+                Grisaille.appliquer(c, false);
                 donnees.enregistrer();
             } else if (Intent.ACTION_USER_PRESENT.equals(intent.getAction())) {
                 ecranAllume = true;
@@ -116,6 +118,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent intent) {
         handler.removeCallbacks(tic);
+        Grisaille.appliquer(this, false);
         try {
             unregisterReceiver(ecran);
         } catch (IllegalArgumentException ignore) {
@@ -377,6 +380,18 @@ public class BlocageAccessibilityService extends AccessibilityService {
                 lecteur.getTransportControls().pause();
             }
         }
+    }
+
+    // ---- Noir et blanc -----------------------------------------------------
+
+    private void grisaille(long maintenant) {
+        boolean gris = false;
+        if (cle != null && !lanceurs.contains(premierPlan)) {
+            for (Limite l : moteur.limitesPour(cle, maintenant)) {
+                gris |= l.grisaille;
+            }
+        }
+        Grisaille.appliquer(this, gris);
     }
 
     // ---- Mode strict -------------------------------------------------------

@@ -49,18 +49,12 @@ final class Cibles extends AbstractSet<String> {
             String appli = Sites.paquet(hote);
             boolean appliVisee = appli != null && (paquets.contains(appli)
                     || partie != null && paquets.contains(appli + "#" + partie));
-            if (sauf) {
-                return !appliVisee;
-            }
-            if (appliVisee || partie != null && sites.contains(partie)) {
-                return true;
-            }
+            // En « tout sauf », la liste dit ce qui est épargné : la réponse s'inverse.
+            boolean liste = appliVisee || partie != null && sites.contains(partie);
             for (String s : sites) {
-                if (Sites.couvre(s, hote)) {
-                    return true;
-                }
+                liste |= Sites.couvre(s, hote);
             }
-            return false;
+            return sauf != liste;
         }
         if (sauf) {
             return !libres.contains(base) && !paquets.contains(p) && !paquets.contains(base);
