@@ -80,6 +80,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
             }
             Declencheurs.verifier(BlocageAccessibilityService.this, donnees, Horloge.maintenant());
             Bilan.verifier(BlocageAccessibilityService.this, Horloge.maintenant());
+            Widget.siBesoin(BlocageAccessibilityService.this, Horloge.maintenant());
             handler.postDelayed(this, TIC);
         }
     };

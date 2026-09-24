@@ -273,6 +273,7 @@ public class MainActivity extends Ecran {
                 Button lancer = Ui.ajouter(carte, Ui.bouton(this, "▶ Bloque-moi ça pendant " + Ui.duree(immediat.valeur * 60_000L), Ui.ROUGE), 10);
                 lancer.setOnClickListener(v -> {
                     moteur.lancerBlocageImmediat(immediat, Horloge.maintenant());
+                    Widget.mettreAJour(this);
                     rafraichir();
                 });
             }
