@@ -193,23 +193,66 @@ public abstract class Ecran extends Activity {
      */
     protected void garde(JSONObject changement, String texte, Runnable apres) {
         Runnable suite = () -> {
-            if (donnees.delaiAssouplissement > 0) {
-                donnees.differer(changement, texte);
-                toast("Anti-triche : « " + texte + " » sera appliqué dans "
-                        + Ui.duree(donnees.delaiAssouplissement * 60_000L) + ".");
+            if (donnees.delaiAssouplissement > 0 && !donnees.confianceCodes.isEmpty()) {
+                proposerConfiance(changement, texte, apres);
             } else {
-                donnees.appliquer(changement);
+                finirGarde(changement, texte, apres, donnees.delaiAssouplissement > 0);
             }
-            if (apres != null) {
-                apres.run();
-            }
-            rafraichir();
         };
         if (donnees.nfcPourModifier) {
             demanderBadge("L’anti-triche demande le badge pour : " + texte + ".", suite);
         } else {
             suite.run();
         }
+    }
+
+    private void finirGarde(JSONObject changement, String texte, Runnable apres, boolean attendre) {
+        if (attendre) {
+            donnees.differer(changement, texte);
+            toast("Anti-triche : « " + texte + " » sera appliqué dans "
+                    + Ui.duree(donnees.delaiAssouplissement * 60_000L) + ".");
+        } else {
+            donnees.appliquer(changement);
+        }
+        if (apres != null) {
+            apres.run();
+        }
+        rafraichir();
+    }
+
+    /** Délai à attendre, ou un code de la personne de confiance pour passer tout de suite. */
+    private void proposerConfiance(JSONObject changement, String texte, Runnable apres) {
+        String nom = donnees.confianceNom;
+        new AlertDialog.Builder(this)
+                .setTitle("Anti-triche")
+                .setMessage("« " + texte + " » attendra " + Ui.duree(donnees.delaiAssouplissement * 60_000L)
+                        + ". Avec un code de " + nom + ", c’est tout de suite.")
+                .setPositiveButton("Code de " + nom, (d, w) -> Choix.texte(this, "Code de " + nom, "", "6 chiffres",
+                        android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD,
+                        code -> {
+                            if (Confiance.utiliser(donnees, code)) {
+                                toast("Code accepté ; il ne resservira pas.");
+                                finirGarde(changement, texte, apres, false);
+                            } else {
+                                toast("Ce code n’est pas (ou plus) valable.");
+                            }
+                        }))
+                .setNeutralButton(donnees.confianceNumero.isEmpty() ? "Attendre" : "Écrire à " + nom, (d, w) -> {
+                    if (donnees.confianceNumero.isEmpty()) {
+                        finirGarde(changement, texte, apres, true);
+                        return;
+                    }
+                    Confiance.sms(this, donnees.confianceNumero, "Discipline : je voudrais " + texte
+                            + ". Si tu es d’accord, envoie-moi un de tes codes.");
+                    // au retour, la question attend le code
+                    proposerConfiance(changement, texte, apres);
+                })
+                .setNegativeButton(donnees.confianceNumero.isEmpty() ? "Annuler" : "Attendre", (d, w) -> {
+                    if (!donnees.confianceNumero.isEmpty()) {
+                        finirGarde(changement, texte, apres, true);
+                    }
+                })
+                .show();
     }
 
     static Donnees.Groupe copieGroupe(Donnees.Groupe g) {

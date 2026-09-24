@@ -95,7 +95,82 @@ public class AntiTricheActivity extends Ecran {
                 + "Reste possible : redémarrer en mode sans échec (appui long sur « Éteindre ») ou réinitialiser le "
                 + "téléphone — assez pénible pour décourager un moment de faiblesse."));
 
+        confiance(c);
+
         boutonBas(c, "Enregistrer", v -> enregistrer());
+    }
+
+    // ---- Personne de confiance -------------------------------------------
+
+    private void confiance(LinearLayout c) {
+        Ui.ajouter(c, Ui.section(this, "Personne de confiance"), 16);
+        LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
+        if (donnees.confianceNom.isEmpty()) {
+            carte.addView(Ui.petit(this, "Quelqu’un qui garde dix codes à usage unique. Quand l’anti-triche fait "
+                    + "attendre, un de ses codes permet de passer tout de suite : il faut lui demander, et lui "
+                    + "dire pourquoi. Il reçoit aussi ton bilan de la semaine si tu veux."));
+            carte.addView(Ui.lien(this, "＋ Choisir quelqu’un", null, v -> choisirPersonne()));
+            return;
+        }
+        LinearLayout r = Ui.ajouter(carte, Ui.rangee(this), 0);
+        Ui.etirer(r, Ui.corps(this, donnees.confianceNom
+                + (donnees.confianceNumero.isEmpty() ? "" : " · " + donnees.confianceNumero)));
+        r.addView(Ui.croix(this, v -> {
+            // retirer la personne ne fait que durcir : plus de raccourci au délai
+            donnees.appliquer(Donnees.changement("confiance", ""));
+            rafraichir();
+        }));
+        int reste = donnees.confianceCodes.size();
+        carte.addView(Ui.petit(this, reste == 0 ? "Plus aucun code : à renouveler."
+                : reste + " code(s) encore valable(s)."));
+        carte.addView(Ui.lien(this, "Renouveler les codes", null,
+                v -> nouveauxCodes(donnees.confianceNom, donnees.confianceNumero)));
+        if (donnees.delaiAssouplissement == 0) {
+            carte.addView(Ui.petit(this, "Sans délai avant d’assouplir, les codes ne servent à rien : règle un délai "
+                    + "ci-dessus."));
+        }
+    }
+
+    private void choisirPersonne() {
+        Choix.texte(this, "Son prénom", "", "Paul", nom -> {
+            if (nom.trim().isEmpty()) {
+                return;
+            }
+            Choix.texte(this, "Son numéro (vide = pas de SMS)", "", "06…", android.text.InputType.TYPE_CLASS_PHONE,
+                    numero -> nouveauxCodes(nom.trim(), numero.trim()));
+        });
+    }
+
+    /** Nouveaux codes : les anciens ne valent plus. Ça ouvre un raccourci au délai, donc anti-triche. */
+    private void nouveauxCodes(String nom, String numero) {
+        java.util.List<String> codes = Confiance.nouveauxCodes();
+        org.json.JSONArray haches = new org.json.JSONArray();
+        StringBuilder liste = new StringBuilder();
+        for (String code : codes) {
+            haches.put(Confiance.hacher(code));
+            liste.append(code).append("\n");
+        }
+        JSONObject ch;
+        try {
+            ch = Donnees.changement("confiance", "").put("nom", nom).put("numero", numero).put("codes", haches);
+        } catch (Exception e) {
+            return;
+        }
+        garde(ch, "confier des codes à " + nom, () -> montrerCodes(nom, numero, liste.toString().trim()));
+    }
+
+    private void montrerCodes(String nom, String numero, String codes) {
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this)
+                .setTitle("Les codes de " + nom)
+                .setMessage("Montre cet écran à " + nom + " (qu’il le prenne en photo) ou envoie-les-lui. Ils ne "
+                        + "seront plus jamais affichés, et chacun ne sert qu’une fois.\n\n" + codes)
+                .setPositiveButton("C’est fait", null);
+        if (!numero.isEmpty()) {
+            b.setNeutralButton("Envoyer par SMS", (d, w) -> Confiance.sms(this, numero,
+                    "Discipline : garde ces codes pour moi, et ne m’en donne un que si ma raison te paraît bonne.\n"
+                            + codes));
+        }
+        b.setCancelable(false).show();
     }
 
     private void enregistrer() {

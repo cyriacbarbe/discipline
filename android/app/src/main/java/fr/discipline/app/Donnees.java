@@ -84,6 +84,10 @@ final class Donnees {
     boolean alerteAccessibilite;
     /** Mode strict : les pages des Réglages qui arrêteraient Discipline se referment. */
     boolean modeStrict;
+    /** Personne de confiance : ses codes à usage unique (hachés) remplacent le délai. */
+    String confianceNom = "";
+    String confianceNumero = "";
+    final List<String> confianceCodes = new ArrayList<>();
 
     /** null tant que l'appli n'a jamais relevé la liste des applis installées. */
     Set<String> applisConnues;
@@ -198,6 +202,10 @@ final class Donnees {
         nfcPourModifier = o.optBoolean("nfcModif");
         alerteAccessibilite = o.optBoolean("alerte");
         modeStrict = o.optBoolean("strict");
+        JSONObject cf = o.optJSONObject("confiance");
+        if (cf != null) {
+            lireConfiance(cf);
+        }
         JSONArray connues = o.optJSONArray("connues");
         if (connues != null) {
             applisConnues = new HashSet<>();
@@ -233,7 +241,7 @@ final class Donnees {
     /** Le réglage seul, sans l'état du téléphone : ce qu'on exporte. */
     synchronized JSONObject exporter() {
         JSONObject o = json();
-        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances", "motifs", "auto"}) {
+        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances", "motifs", "auto", "confiance"}) {
             o.remove(cle);
         }
         return o;
@@ -267,7 +275,9 @@ final class Donnees {
                     .put("suiviesGroupes", new JSONArray(suiviesGroupes)).put("vacances", vacancesJusquA)
                     .put("delai", delaiAssouplissement).put("nfcModif", nfcPourModifier)
                     .put("alerte", alerteAccessibilite).put("strict", modeStrict).put("motifs", new JSONArray(motifs)).put("enAttente", new JSONArray(enAttente))
-                    .put("etats", etats).put("compteurs", compteurs);
+                    .put("etats", etats).put("compteurs", compteurs)
+                    .put("confiance", new JSONObject().put("nom", confianceNom).put("numero", confianceNumero)
+                            .put("codes", new JSONArray(confianceCodes)));
             if (applisConnues != null) {
                 o.put("connues", new JSONArray(applisConnues));
             }
@@ -518,6 +528,9 @@ final class Donnees {
             case "import":
                 remplacer(ch.optJSONObject("reglages"));
                 break;
+            case "confiance":
+                lireConfiance(ch);
+                break;
             case "antitriche":
                 delaiAssouplissement = ch.optInt("delai");
                 nfcPourModifier = ch.optBoolean("nfc");
@@ -528,6 +541,13 @@ final class Donnees {
                 break;
         }
         enregistrer();
+    }
+
+    private void lireConfiance(JSONObject cf) {
+        confianceNom = cf.optString("nom");
+        confianceNumero = cf.optString("numero");
+        confianceCodes.clear();
+        lireChaines(cf.optJSONArray("codes"), confianceCodes);
     }
 
     synchronized void differer(JSONObject ch, String texte) {

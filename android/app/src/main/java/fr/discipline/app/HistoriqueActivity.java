@@ -28,6 +28,8 @@ public class HistoriqueActivity extends Ecran {
     @Override
     protected void rafraichir() {
         LinearLayout c = page("Historique d’usage", true);
+        Ui.ajouter(c, Ui.lien(this, "Bilan de la semaine dernière", null,
+                v -> startActivity(new android.content.Intent(this, BilanActivity.class))), 4);
         if (!Historique.autorise(this)) {
             MainActivity.carteAccesUsage(this, c);
         }

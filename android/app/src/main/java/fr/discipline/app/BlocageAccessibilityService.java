@@ -79,6 +79,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
                 grisaille(maintenant);
             }
             Declencheurs.verifier(BlocageAccessibilityService.this, donnees, Horloge.maintenant());
+            Bilan.verifier(BlocageAccessibilityService.this, Horloge.maintenant());
             handler.postDelayed(this, TIC);
         }
     };
