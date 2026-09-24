@@ -16,7 +16,7 @@ public class ParametresActivity extends Ecran {
     @Override
     protected void rafraichir() {
         LinearLayout c = page("Paramètres", true);
-        long maintenant = System.currentTimeMillis();
+        long maintenant = Horloge.maintenant();
 
         LinearLayout temps = Ui.ajouter(c, Ui.carte(this), 12);
         temps.addView(Ui.lien(this, "Tolérance de session", donnees.toleranceSecondes + " s",

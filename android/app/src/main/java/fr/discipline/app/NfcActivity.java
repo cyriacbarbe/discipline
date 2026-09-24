@@ -22,7 +22,7 @@ public class NfcActivity extends Ecran {
         String id = idBadge(getIntent());
         if (id != null) {
             if (donnees.badges.containsKey(id)) {
-                int n = donnees.debloquerParBadge(System.currentTimeMillis());
+                int n = donnees.debloquerParBadge(id, Horloge.maintenant());
                 Toast.makeText(this, n > 0 ? "🔓 « " + donnees.badges.get(id) + " » : " + n + " limite(s) débloquée(s)"
                         : "Aucune limite à débloquer par badge.", Toast.LENGTH_LONG).show();
             } else {
@@ -52,8 +52,9 @@ public class NfcActivity extends Ecran {
         if (NfcAdapter.getDefaultAdapter(this) == null) {
             Ui.ajouter(c, Ui.texte(this, "Ce téléphone n’a pas de NFC.", 15, Ui.ORANGE, false), 12);
         }
-        Ui.ajouter(c, Ui.petit(this, "Un badge enregistré débloque les limites « Badge NFC », "
-                + "et sert de clé quand l’anti-triche l’exige."), 8);
+        Ui.ajouter(c, Ui.petit(this, "Chaque badge ne débloque que les limites « Badge NFC » qui l’acceptent "
+                + "(une limite sans badge attitré accepte n’importe lequel), et sert de clé quand l’anti-triche l’exige. "
+                + "Ajouter un badge alors qu’une limite accepte n’importe lequel passe par l’anti-triche."), 8);
         for (Map.Entry<String, String> b : new ArrayList<>(donnees.badges.entrySet())) {
             LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 10);
             LinearLayout r = Ui.rangee(this);
@@ -105,7 +106,7 @@ public class NfcActivity extends Ecran {
     protected void badgeLu(String id) {
         if (!enregistrement) {
             if (donnees.badges.containsKey(id)) {
-                int n = donnees.debloquerParBadge(System.currentTimeMillis());
+                int n = donnees.debloquerParBadge(id, Horloge.maintenant());
                 toast("🔓 " + n + " limite(s) débloquée(s).");
             } else {
                 toast("Badge inconnu : touche « Enregistrer un badge » d’abord.");
@@ -119,7 +120,17 @@ public class NfcActivity extends Ecran {
             return;
         }
         Choix.texte(this, "Nom du badge", "Badge " + (donnees.badges.size() + 1), "", t -> {
-            donnees.badges.put(id, t.isEmpty() ? "Badge" : t);
+            String nom = t.isEmpty() ? "Badge" : t;
+            if (donnees.badgeQuelconqueAccepte()) {
+                // Un nouveau badge ouvrirait des limites « n'importe quel badge » : c'est un assouplissement.
+                try {
+                    garde(Donnees.changement("badge", id).put("nom", nom), "ajouter le badge « " + nom + " »", null);
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+                return;
+            }
+            donnees.badges.put(id, nom);
             donnees.enregistrer();
             rafraichir();
         });

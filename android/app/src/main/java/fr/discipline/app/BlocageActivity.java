@@ -70,7 +70,7 @@ public class BlocageActivity extends Ecran {
             finish();
             return;
         }
-        long maintenant = System.currentTimeMillis();
+        long maintenant = Horloge.maintenant();
         Moteur moteur = new Moteur(this);
         Moteur.Resultat r = moteur.evaluer(limite, maintenant);
         String appli = Applications.nom(this, paquet);
@@ -117,7 +117,7 @@ public class BlocageActivity extends Ecran {
                 minuterie = new Runnable() {
                     @Override
                     public void run() {
-                        long reste = a - System.currentTimeMillis();
+                        long reste = a - Horloge.maintenant();
                         if (reste <= 0) {
                             rafraichir();
                             return;
@@ -158,14 +158,14 @@ public class BlocageActivity extends Ecran {
         ouvrir.setEnabled(false);
         ouvrir.setAlpha(0.4f);
         ouvrir.setOnClickListener(v -> {
-            moteur.accorderPasse(cause, System.currentTimeMillis());
+            moteur.accorderPasse(cause, Horloge.maintenant());
             ouvrirAppli();
         });
-        long fin = System.currentTimeMillis() + cause.valeur * 1000L;
+        long fin = Horloge.maintenant() + cause.valeur * 1000L;
         minuterie = new Runnable() {
             @Override
             public void run() {
-                long reste = fin - System.currentTimeMillis();
+                long reste = fin - Horloge.maintenant();
                 if (reste <= 0) {
                     compte.setText("✓");
                     ouvrir.setEnabled(true);
@@ -193,7 +193,7 @@ public class BlocageActivity extends Ecran {
             b.setEnabled(false);
             attendre(b, limite.rallongeAttente, () -> {
                 Runnable accorder = () -> {
-                    moteur.accorderRallonge(limite, System.currentTimeMillis());
+                    moteur.accorderRallonge(limite, Horloge.maintenant());
                     ouvrirAppli();
                 };
                 if (limite.rallongeNfc) {
@@ -212,12 +212,12 @@ public class BlocageActivity extends Ecran {
             return;
         }
         arreterMinuterie();
-        long fin = System.currentTimeMillis() + secondes * 1000L;
+        long fin = Horloge.maintenant() + secondes * 1000L;
         CharSequence texte = b.getText();
         minuterie = new Runnable() {
             @Override
             public void run() {
-                long reste = fin - System.currentTimeMillis();
+                long reste = fin - Horloge.maintenant();
                 if (reste <= 0) {
                     b.setText(texte);
                     suite.run();
@@ -236,10 +236,16 @@ public class BlocageActivity extends Ecran {
             toast("Badge inconnu.");
             return;
         }
-        if (limite != null && limite.conditionDeType(Condition.NFC) != null) {
-            donnees.debloquerParBadge(System.currentTimeMillis());
-            ouvrirAppli();
+        boolean ouvreCelleCi = false;
+        for (Condition c : limite != null ? limite.conditions : new java.util.ArrayList<Condition>()) {
+            ouvreCelleCi |= Donnees.ouvre(c, id);
         }
+        if (!ouvreCelleCi) {
+            toast("Ce badge n’ouvre pas cette limite.");
+            return;
+        }
+        donnees.debloquerParBadge(id, Horloge.maintenant());
+        ouvrirAppli();
     }
 
     private void ouvrirAppli() {

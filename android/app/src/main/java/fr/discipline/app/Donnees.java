@@ -10,6 +10,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -86,6 +87,7 @@ final class Donnees {
     JSONObject compteurs = new JSONObject();
 
     static synchronized Donnees get(Context c) {
+        Horloge.init(c);
         if (instance == null) {
             instance = new Donnees(c.getApplicationContext());
         }
@@ -110,6 +112,38 @@ final class Donnees {
         for (int i = 0; a != null && i < a.length(); i++) {
             dans.add(a.optString(i));
         }
+    }
+
+    /**
+     * Import d'un réglage exporté : remplace limites, groupes, profils,
+     * messages, badges et réglages, mais garde l'état du téléphone (déblocages
+     * en cours, compteurs, changements en attente, applis connues).
+     */
+    private void remplacer(JSONObject o) {
+        if (o == null) {
+            return;
+        }
+        JSONObject gardeEtats = etats;
+        JSONObject gardeCompteurs = compteurs;
+        Set<String> gardeConnues = applisConnues;
+        limites.clear();
+        groupes.clear();
+        profils.clear();
+        messages.clear();
+        badges.clear();
+        suiviesApplis.clear();
+        suiviesGroupes.clear();
+        try {
+            // appelé pendant le parcours des changements en attente : ne pas y toucher
+            JSONObject r = new JSONObject(o.toString());
+            r.remove("enAttente");
+            lire(r);
+        } catch (Exception e) {
+            // import partiel : on garde ce qui a pu être lu
+        }
+        etats = gardeEtats;
+        compteurs = gardeCompteurs;
+        applisConnues = gardeConnues;
     }
 
     private void lire(JSONObject o) throws Exception {
@@ -159,7 +193,7 @@ final class Donnees {
         }
         etats = o.optJSONObject("etats") != null ? o.getJSONObject("etats") : new JSONObject();
         compteurs = o.optJSONObject("compteurs") != null ? o.getJSONObject("compteurs") : new JSONObject();
-        String plusVieux = cleJour(System.currentTimeMillis() - 40L * 86_400_000L);
+        String plusVieux = cleJour(Horloge.maintenant() - 40L * 86_400_000L);
         List<String> aRetirer = new ArrayList<>();
         for (Iterator<String> it = compteurs.keys(); it.hasNext(); ) {
             String jour = it.next();
@@ -237,7 +271,31 @@ final class Donnees {
     }
 
     Set<String> cibles(Limite l) {
-        return paquetsDe(l.applis, l.groupes);
+        return new Cibles(paquetsDe(l.applis, l.groupes), l.toutSauf, l.sites.isEmpty() ? null : "site:" + l.id, libres());
+    }
+
+    private Set<String> libres;
+
+    /** Applis jamais visées par une liste blanche : téléphone, urgences, réglages, lanceur, Discipline. */
+    Set<String> libres() {
+        if (libres == null) {
+            Set<String> l = new HashSet<>(Applications.lanceurs(contexte.getPackageManager()));
+            l.add(contexte.getPackageName());
+            Collections.addAll(l, "com.android.phone", "com.android.server.telecom", "com.android.emergency",
+                    "com.android.dialer", "com.google.android.dialer", "com.samsung.android.dialer",
+                    "com.android.settings", "com.android.systemui", "com.android.packageinstaller",
+                    "com.google.android.packageinstaller");
+            try {
+                String numeroteur = contexte.getSystemService(android.telecom.TelecomManager.class).getDefaultDialerPackage();
+                if (numeroteur != null) {
+                    l.add(numeroteur);
+                }
+            } catch (RuntimeException ignore) {
+                // pas de téléphonie
+            }
+            libres = l;
+        }
+        return libres;
     }
 
     List<Groupe> groupesDe(String paquet) {
@@ -295,7 +353,7 @@ final class Donnees {
 
     synchronized void compter(String idLimite, int quoi) {
         try {
-            String jour = cleJour(System.currentTimeMillis());
+            String jour = cleJour(Horloge.maintenant());
             JSONObject duJour = compteurs.optJSONObject(jour);
             if (duJour == null) {
                 duJour = new JSONObject();
@@ -388,6 +446,15 @@ final class Donnees {
                 }
                 break;
             }
+            case "badge":
+                badges.put(id, ch.optString("nom", "Badge"));
+                break;
+            case "tolerance":
+                toleranceSecondes = ch.optInt("valeur", 5);
+                break;
+            case "import":
+                remplacer(ch.optJSONObject("reglages"));
+                break;
             case "antitriche":
                 delaiAssouplissement = ch.optInt("delai");
                 nfcPourModifier = ch.optBoolean("nfc");
@@ -401,7 +468,7 @@ final class Donnees {
 
     synchronized void differer(JSONObject ch, String texte) {
         try {
-            ch.put("a", System.currentTimeMillis() + delaiAssouplissement * 60_000L).put("texte", texte);
+            ch.put("a", Horloge.maintenant() + delaiAssouplissement * 60_000L).put("texte", texte);
         } catch (Exception ignore) {
             // clés non nulles
         }
@@ -411,7 +478,7 @@ final class Donnees {
 
     /** Applique les changements différés dont l'heure est venue. */
     synchronized void appliquerEnAttente() {
-        long maintenant = System.currentTimeMillis();
+        long maintenant = Horloge.maintenant();
         boolean fait = false;
         for (Iterator<JSONObject> it = enAttente.iterator(); it.hasNext(); ) {
             JSONObject ch = it.next();
@@ -433,14 +500,34 @@ final class Donnees {
 
     // ---- NFC ---------------------------------------------------------------
 
-    /** Débloque toutes les conditions « badge NFC » ; renvoie le nombre de limites concernées. */
-    synchronized int debloquerParBadge(long maintenant) {
+    /** Ce badge ouvre-t-il cette condition (condition sans badge attitré = n'importe lequel) ? */
+    static boolean ouvre(Condition c, String badge) {
+        return c.type == Condition.NFC && (c.badges.isEmpty() || c.badges.contains(badge));
+    }
+
+    /** Une condition NFC active accepte n'importe quel badge : en ajouter un assouplirait. */
+    boolean badgeQuelconqueAccepte() {
+        if (nfcPourModifier) {
+            return true;
+        }
+        for (Limite l : limites) {
+            for (Condition c : l.conditions) {
+                if (l.active && c.type == Condition.NFC && c.badges.isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Débloque les conditions NFC que ce badge ouvre (et elles seules). Rend le nombre de limites touchées. */
+    synchronized int debloquerParBadge(String badge, long maintenant) {
         int nombre = 0;
         try {
             for (Limite l : limites) {
                 boolean touchee = false;
                 for (Condition c : l.conditions) {
-                    if (c.type != Condition.NFC) {
+                    if (!ouvre(c, badge)) {
                         continue;
                     }
                     JSONObject e = etat(c.id);

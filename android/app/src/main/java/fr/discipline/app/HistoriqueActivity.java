@@ -32,7 +32,7 @@ public class HistoriqueActivity extends Ecran {
             MainActivity.carteAccesUsage(this, c);
         }
         Journal journal = Journal.get(this);
-        long maintenant = System.currentTimeMillis();
+        long maintenant = Horloge.maintenant();
         long premier = journal.premierDebut();
 
         Calendar mois = Calendar.getInstance();

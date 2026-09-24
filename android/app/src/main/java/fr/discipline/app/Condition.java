@@ -5,6 +5,8 @@ import org.json.JSONObject;
 
 import java.util.Calendar;
 import java.util.Locale;
+import java.util.Set;
+import java.util.TreeSet;
 
 /** Une condition d'une limite : l'un des neuf types du cahier des charges, avec ses réglages. */
 class Condition {
@@ -34,6 +36,83 @@ class Condition {
     int[] parJour;
     Periode periode = new Periode();
     int modeNfc = NFC_SESSION;
+    /** NFC : badges qui débloquent cette condition (vide = n'importe quel badge enregistré). */
+    Set<String> badges = new TreeSet<>();
+    /** FRICTION : ce qu'il faut franchir. */
+    int modeFriction = FRICTION_ATTENTE;
+    /** FRICTION : l'attente double à chaque ouverture de la journée. */
+    boolean doubler;
+
+    static final int FRICTION_ATTENTE = 0;
+    static final int FRICTION_PHRASE = 1;
+    static final int FRICTION_POURQUOI = 2;
+    static final int FRICTION_CALCUL = 3;
+    static final String[] MODES_FRICTION = {"Compte à rebours", "Recopier une phrase", "Dire pourquoi", "Calcul mental"};
+
+    /**
+     * Quota qui se consomme (temps, ouvertures, sessions, pauses) : c'est ce
+     * qu'une rallonge lève, et rien d'autre.
+     */
+    boolean estQuota() {
+        return type == TEMPS || type == OUVERTURES || type == DUREE_SESSION || type == SESSIONS
+                || type == PAUSE || type == PAUSE_PROPORTIONNELLE;
+    }
+
+    /** Valeur d'un jour de la semaine (lundi = 0), la valeur commune à défaut. */
+    private int valeurJour(int index) {
+        return parJour == null || !aValeurParJour() || parJour[index] < 0 ? valeur : parJour[index];
+    }
+
+    /**
+     * Cette version de la condition ne laisse jamais passer plus que {@code a} :
+     * même condition, réglages égaux ou plus durs. Sert à appliquer tout de
+     * suite un durcissement, sans le délai de l'anti-triche.
+     */
+    boolean aussiStricteQue(Condition a) {
+        if (type != a.type || !id.equals(a.id)) {
+            return false;
+        }
+        try {
+            if (aPeriode() != a.aPeriode() || aPeriode() && !periode.json().toString().equals(a.periode.json().toString())) {
+                return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        switch (type) {
+            case TEMPS:
+            case OUVERTURES:
+            case DUREE_SESSION:
+            case SESSIONS:
+                for (int i = 0; i < 7; i++) {
+                    if (valeurJour(i) > a.valeurJour(i)) {
+                        return false;
+                    }
+                }
+                return type != SESSIONS || valeur2 <= a.valeur2;
+            case PAUSE:
+            case IMMEDIAT:
+                return valeur >= a.valeur;
+            case PAUSE_PROPORTIONNELLE:
+                return coef >= a.coef;
+            case FRICTION:
+                return modeFriction == a.modeFriction && valeur >= a.valeur && (doubler || !a.doubler);
+            case NFC:
+                return modeNfc == a.modeNfc && (modeNfc != NFC_MINUTES || valeur2 <= a.valeur2)
+                        && (a.badges.isEmpty() || !badges.isEmpty() && a.badges.containsAll(badges));
+            default:
+                return false;
+        }
+    }
+
+    /** Attente de la friction pour la n-ième ouverture du jour (n ≥ 1), plafonnée à 10 min. */
+    int secondesFriction(int ouverture) {
+        long s = valeur;
+        for (int i = 1; doubler && i < ouverture && s < 600; i++) {
+            s *= 2;
+        }
+        return (int) Math.min(s, Math.max(valeur, 600));
+    }
 
     static Condition nouvelle(int type) {
         Condition c = new Condition();
@@ -88,11 +167,13 @@ class Condition {
     }
 
     boolean aValeurParJour() {
-        return type == TEMPS || type == OUVERTURES || type == DUREE_SESSION || type == SESSIONS;
+        // Sur une semaine, une valeur « du jour » n'a pas de sens : le compte court sur sept jours.
+        boolean semaine = aPeriode() && periode.unite == Periode.SEMAINE;
+        return !semaine && (type == TEMPS || type == OUVERTURES || type == DUREE_SESSION || type == SESSIONS);
     }
 
     int valeurDuJour(long maintenant) {
-        if (parJour == null) {
+        if (parJour == null || !aValeurParJour()) {
             return valeur;
         }
         Calendar c = Calendar.getInstance();
@@ -102,7 +183,7 @@ class Condition {
     }
 
     String resume() {
-        String variantes = parJour != null ? " (varie selon le jour)" : "";
+        String variantes = parJour != null && aValeurParJour() ? " (varie selon le jour)" : "";
         switch (type) {
             case TEMPS: return valeur + " min " + periode.libelle() + variantes;
             case OUVERTURES: return valeur + " ouverture" + (valeur > 1 ? "s " : " ") + periode.libelle() + variantes;
@@ -110,10 +191,21 @@ class Condition {
             case SESSIONS: return valeur + " session" + (valeur > 1 ? "s" : "") + " de " + valeur2 + " min " + periode.libelle() + variantes;
             case PAUSE: return "pause de " + valeur + " min après usage";
             case PAUSE_PROPORTIONNELLE: return "pause = temps passé × " + String.format(Locale.FRANCE, "%.2g", coef);
-            case FRICTION: return "compte à rebours de " + valeur + " s";
+            case FRICTION:
+                if (modeFriction == FRICTION_PHRASE) {
+                    return "recopier une phrase avant d’ouvrir";
+                }
+                if (modeFriction == FRICTION_POURQUOI) {
+                    return "dire pourquoi avant d’ouvrir";
+                }
+                if (modeFriction == FRICTION_CALCUL) {
+                    return "calcul mental avant d’ouvrir";
+                }
+                return "compte à rebours de " + valeur + " s" + (doubler ? ", qui double à chaque ouverture" : "");
             case IMMEDIAT: return "blocage de " + valeur + " min à la demande";
             case NFC:
-                return "badge NFC, déblocage : " + (modeNfc == NFC_SESSION ? "une session"
+                return (badges.isEmpty() ? "badge NFC" : badges.size() == 1 ? "1 badge précis" : badges.size() + " badges précis")
+                        + ", déblocage : " + (modeNfc == NFC_SESSION ? "une session"
                         : modeNfc == NFC_MINUTES ? valeur2 + " min" : "jusqu’à la fin de la période (" + periode.libelle() + ")");
             default: return "";
         }
@@ -121,7 +213,8 @@ class Condition {
 
     JSONObject json() throws Exception {
         JSONObject o = new JSONObject().put("id", id).put("t", type).put("v", valeur).put("v2", valeur2)
-                .put("c", coef).put("p", periode.json()).put("n", modeNfc);
+                .put("c", coef).put("p", periode.json()).put("n", modeNfc).put("b", new JSONArray(badges))
+                .put("f", modeFriction).put("fd", doubler);
         if (parJour != null) {
             JSONArray a = new JSONArray();
             for (int v : parJour) {
@@ -141,6 +234,12 @@ class Condition {
         c.coef = o.optDouble("c", 1);
         c.periode = Periode.de(o.optJSONObject("p"));
         c.modeNfc = o.optInt("n");
+        JSONArray b = o.optJSONArray("b");
+        for (int i = 0; b != null && i < b.length(); i++) {
+            c.badges.add(b.optString(i));
+        }
+        c.modeFriction = o.optInt("f");
+        c.doubler = o.optBoolean("fd");
         JSONArray a = o.optJSONArray("j");
         if (a != null && a.length() == 7) {
             c.parJour = new int[7];

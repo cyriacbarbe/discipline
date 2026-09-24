@@ -37,7 +37,7 @@ public class MainActivity extends Ecran {
     protected void rafraichir() {
         LinearLayout c = page("Discipline", false);
         actionEntete("⚙", v -> startActivity(new Intent(this, ParametresActivity.class)));
-        long maintenant = System.currentTimeMillis();
+        long maintenant = Horloge.maintenant();
 
         if (miseAJour != null) {
             Button maj = Ui.ajouter(c, Ui.boutonPlein(this, "⬇ Mise à jour disponible : " + miseAJour[0]
@@ -272,7 +272,7 @@ public class MainActivity extends Ecran {
             if (jusqua <= maintenant) {
                 Button lancer = Ui.ajouter(carte, Ui.bouton(this, "▶ Bloque-moi ça pendant " + Ui.duree(immediat.valeur * 60_000L), Ui.ROUGE), 10);
                 lancer.setOnClickListener(v -> {
-                    moteur.lancerBlocageImmediat(immediat, System.currentTimeMillis());
+                    moteur.lancerBlocageImmediat(immediat, Horloge.maintenant());
                     rafraichir();
                 });
             }

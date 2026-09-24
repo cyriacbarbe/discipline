@@ -23,6 +23,10 @@ class Limite {
     boolean active = true;
     Set<String> applis = new TreeSet<>();
     Set<String> groupes = new TreeSet<>();
+    /** Liste blanche : la limite vise tout le téléphone sauf ces applis et groupes (nouvelles applis comprises). */
+    boolean toutSauf;
+    /** Sites et mots-clés visés dans le navigateur, en plus des sites des applis ciblées. */
+    List<String> sites = new ArrayList<>();
     List<Condition> conditions = new ArrayList<>();
     /** Opérateur entre la condition i et i+1 : true = ET, false = OU. */
     List<Boolean> et = new ArrayList<>();
@@ -44,6 +48,17 @@ class Limite {
     int rallongeNombre = 1;
     int rallongeAttente;
     boolean rallongeNfc;
+    /** L'attente de la rallonge double à chaque rallonge déjà prise sur la période. */
+    boolean rallongeProgressive;
+    /** Il faut dire pourquoi avant d'obtenir la rallonge. */
+    boolean rallongeMotif;
+
+    /** Temps et ouvertures ne comptent que dans les plages et jours où la limite s'applique. */
+    boolean dansPlage;
+    /** Les notifications des cibles sont mises en sourdine tant que la limite bloque. */
+    boolean silence;
+    /** L'écran passe en noir et blanc quand une cible est au premier plan. */
+    boolean grisaille;
 
     /** Seuils des bulles de temps restant, en minutes. */
     List<Integer> bulles = new ArrayList<>();
@@ -70,6 +85,96 @@ class Limite {
             }
         }
         return false;
+    }
+
+    /**
+     * Morceaux de [debut, fin] où la limite s'applique (jours, plages, dates
+     * exclues), pour ne compter que là quand {@link #dansPlage} est coché.
+     */
+    List<long[]> fenetres(long debut, long fin) {
+        List<long[]> morceaux = new ArrayList<>();
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(debut);
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
+        c.set(Calendar.SECOND, 0);
+        c.set(Calendar.MILLISECOND, 0);
+        while (c.getTimeInMillis() < fin) {
+            long minuit = c.getTimeInMillis();
+            c.add(Calendar.DAY_OF_YEAR, 1);
+            long lendemain = c.getTimeInMillis();
+            List<long[]> jour = new ArrayList<>();
+            if (plages.isEmpty()) {
+                jour.add(new long[]{minuit, lendemain});
+            }
+            for (int[] p : plages) {
+                if (p[0] < p[1]) {
+                    jour.add(new long[]{minuit + p[0] * 60_000L, minuit + p[1] * 60_000L});
+                } else if (p[0] > p[1]) {
+                    jour.add(new long[]{minuit, minuit + p[1] * 60_000L});
+                    jour.add(new long[]{minuit + p[0] * 60_000L, lendemain});
+                }
+            }
+            for (long[] m : jour) {
+                long a = Math.max(m[0], debut);
+                long b = Math.min(m[1], fin);
+                if (a < b && sAppliqueA(m[0] + (m[1] - m[0]) / 2)) {
+                    morceaux.add(new long[]{a, b});
+                }
+            }
+        }
+        return morceaux;
+    }
+
+    /**
+     * Passer de {@code a} à cette version ne fait que durcir la limite : plus
+     * de cibles, de jours ou de conditions (liées par ET), des seuils plus
+     * bas, moins de rallonges… Un durcissement s'applique sans délai.
+     */
+    boolean aussiStricteQue(Limite a) {
+        if (a.active && !active || toutSauf != a.toutSauf || dansPlage && !a.dansPlage) {
+            return false;
+        }
+        boolean cibles = toutSauf ? a.applis.containsAll(applis) && a.groupes.containsAll(groupes)
+                : applis.containsAll(a.applis) && groupes.containsAll(a.groupes);
+        if (!cibles || !sites.containsAll(a.sites) || (jours & a.jours) != a.jours) {
+            return false;
+        }
+        for (long[] d : datesExclues) {
+            boolean dejaLa = false;
+            for (long[] e : a.datesExclues) {
+                dejaLa |= e[0] <= d[0] && d[1] <= e[1];
+            }
+            if (!dejaLa) {
+                return false;
+            }
+        }
+        int n = a.conditions.size();
+        if (conditions.size() < n) {
+            return false;
+        }
+        for (int i = 0; i < n; i++) {
+            if (!conditions.get(i).aussiStricteQue(a.conditions.get(i))) {
+                return false;
+            }
+        }
+        for (int i = 0; i < et.size(); i++) {
+            boolean attendu = i < a.et.size() ? a.et.get(i) : true;
+            if (n > 0 && et.get(i) != attendu) {
+                return false;
+            }
+        }
+        if (rallongeMinutes > 0 && (a.rallongeMinutes == 0 || rallongeMinutes > a.rallongeMinutes
+                || rallongeNombre > a.rallongeNombre || rallongeAttente < a.rallongeAttente
+                || a.rallongeNfc && !rallongeNfc || a.rallongeProgressive && !rallongeProgressive
+                || a.rallongeMotif && !rallongeMotif)) {
+            return false;
+        }
+        try {
+            return json().optJSONArray("plages").toString().equals(a.json().optJSONArray("plages").toString());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     Condition conditionDeType(int type) {
@@ -109,6 +214,9 @@ class Limite {
             return nom.trim();
         }
         List<String> noms = new ArrayList<>();
+        if (toutSauf) {
+            return applis.isEmpty() && groupes.isEmpty() ? "Tout le téléphone" : "Tout sauf " + (applis.size() + groupes.size());
+        }
         for (String g : groupes) {
             Donnees.Groupe groupe = d.groupes.get(g);
             if (groupe != null) {
@@ -139,7 +247,9 @@ class Limite {
                 .put("jours", jours).put("action", action).put("alt", appliAlternative)
                 .put("messages", new JSONArray(messages)).put("image", image).put("dispo", afficherDispo)
                 .put("rMin", rallongeMinutes).put("rNb", rallongeNombre).put("rAtt", rallongeAttente)
-                .put("rNfc", rallongeNfc).put("bulles", new JSONArray(bulles));
+                .put("rNfc", rallongeNfc).put("bulles", new JSONArray(bulles))
+                .put("sauf", toutSauf).put("sites", new JSONArray(sites)).put("rProg", rallongeProgressive)
+                .put("rMotif", rallongeMotif).put("dansPlage", dansPlage).put("silence", silence).put("gris", grisaille);
         JSONArray cs = new JSONArray();
         for (Condition c : conditions) {
             cs.put(c.json());
@@ -174,6 +284,13 @@ class Limite {
         l.rallongeNombre = o.optInt("rNb", 1);
         l.rallongeAttente = o.optInt("rAtt");
         l.rallongeNfc = o.optBoolean("rNfc");
+        l.toutSauf = o.optBoolean("sauf");
+        Donnees.lireChaines(o.optJSONArray("sites"), l.sites);
+        l.rallongeProgressive = o.optBoolean("rProg");
+        l.rallongeMotif = o.optBoolean("rMotif");
+        l.dansPlage = o.optBoolean("dansPlage");
+        l.silence = o.optBoolean("silence");
+        l.grisaille = o.optBoolean("gris");
         JSONArray b = o.optJSONArray("bulles");
         for (int i = 0; b != null && i < b.length(); i++) {
             l.bulles.add(b.optInt(i));

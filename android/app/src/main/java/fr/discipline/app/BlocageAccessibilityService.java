@@ -47,7 +47,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
         @Override
         public void run() {
             if (ecranAllume) {
-                long maintenant = System.currentTimeMillis();
+                long maintenant = Horloge.maintenant();
                 if (maintenant - dernierEnregistrement > 60_000L) {
                     dernierEnregistrement = maintenant;
                     donnees.appliquerEnAttente();
@@ -62,7 +62,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
     private final BroadcastReceiver ecran = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent intent) {
-            long maintenant = System.currentTimeMillis();
+            long maintenant = Horloge.maintenant();
             if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
                 ecranAllume = false;
                 avantExtinction = premierPlan;
@@ -100,7 +100,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
             // déjà retiré
         }
         if (journal != null) {
-            journal.fermer(System.currentTimeMillis());
+            journal.fermer(Horloge.maintenant());
         }
         if (donnees != null && donnees.alerteAccessibilite) {
             Surveillance.alerter(this);
@@ -142,7 +142,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
         if (paquet.equals(premierPlan)) {
             return;
         }
-        long maintenant = System.currentTimeMillis();
+        long maintenant = Horloge.maintenant();
         premierPlan = paquet;
         if (lanceurs.contains(paquet)) {
             journal.fermer(maintenant);
@@ -158,7 +158,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
         if (paquet == null || lanceurs.contains(paquet) || paquet.equals(getPackageName())) {
             return;
         }
-        long maintenant = System.currentTimeMillis();
+        long maintenant = Horloge.maintenant();
         if (paquet.equals(dernierBloque) && maintenant - dernierBlocage < 1500) {
             return;
         }

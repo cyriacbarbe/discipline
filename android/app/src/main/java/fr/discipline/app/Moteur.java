@@ -43,11 +43,10 @@ final class Moteur {
     /** Limites actives qui visent ce paquet et s'appliquent maintenant. */
     List<Limite> limitesPour(String paquet, long maintenant) {
         List<Limite> liste = new ArrayList<>();
-        if (d.enVacances(maintenant)) {
-            return liste;
-        }
+        boolean vacances = d.enVacances(maintenant);
         for (Limite l : d.limites) {
-            if (l.active && !l.conditions.isEmpty() && l.sAppliqueA(maintenant) && d.cibles(l).contains(paquet)) {
+            boolean enVigueur = !vacances && l.sAppliqueA(maintenant) || immediatEnCours(l, maintenant) != null;
+            if (l.active && !l.conditions.isEmpty() && enVigueur && d.cibles(l).contains(paquet)) {
                 liste.add(l);
             }
         }
@@ -68,15 +67,23 @@ final class Moteur {
         r.tempsDuJour = j.temps(cibles, debutJour, maintenant);
         r.ouverturesDuJour = compterDepuis(sessions, debutJour);
 
-        if (!l.sAppliqueA(maintenant) || d.enVacances(maintenant) || l.conditions.isEmpty()) {
+        if (l.conditions.isEmpty()) {
             return r;
         }
+        if (!l.sAppliqueA(maintenant) || d.enVacances(maintenant)) {
+            // Hors plage et en vacances, seul un « Bloque-moi ça » lancé à la main tient encore.
+            Condition immediat = immediatEnCours(l, maintenant);
+            if (immediat != null) {
+                r.bloque = true;
+                r.cause = immediat;
+                r.dispoA = d.etat(immediat.id).optLong("jusqua");
+            }
+            return r;
+        }
+        // La rallonge ne lève que les quotas atteints (temps, ouvertures, sessions, pauses) :
+        // un blocage immédiat, un badge ou une friction restent exigés.
         long rallonge = d.etat(l.id).optLong("rallonge");
-        if (maintenant < rallonge) {
-            r.rallongeEnCours = true;
-            r.restant = rallonge - maintenant;
-            return r;
-        }
+        r.rallongeEnCours = maintenant < rallonge;
 
         int n = l.conditions.size();
         boolean[] respectee = new boolean[n];
@@ -84,7 +91,12 @@ final class Moteur {
         for (int i = 0; i < n; i++) {
             Condition c = l.conditions.get(i);
             long[] detail = new long[2]; // {dispoA, restant}
-            respectee[i] = respectee(c, sessions, courante, cibles, maintenant, tolerance, detail);
+            if (r.rallongeEnCours && c.estQuota()) {
+                respectee[i] = true;
+                detail[1] = rallonge - maintenant;
+            } else {
+                respectee[i] = respectee(l, c, sessions, courante, cibles, maintenant, tolerance, detail);
+            }
             dispo[i] = detail[0];
             if (respectee[i] && detail[1] > 0 && detail[1] < r.restant) {
                 r.restant = detail[1];
@@ -128,6 +140,16 @@ final class Moteur {
         return r;
     }
 
+    /** Condition « Bloque-moi ça » lancée et pas encore écoulée, ou null. */
+    Condition immediatEnCours(Limite l, long maintenant) {
+        for (Condition c : l.conditions) {
+            if (c.type == Condition.IMMEDIAT && maintenant < d.etat(c.id).optLong("jusqua")) {
+                return c;
+            }
+        }
+        return null;
+    }
+
     private static int compterDepuis(List<long[]> sessions, long debut) {
         int n = 0;
         for (long[] s : sessions) {
@@ -138,20 +160,57 @@ final class Moteur {
         return n;
     }
 
-    private boolean respectee(Condition c, List<long[]> sessions, long[] courante, Set<String> cibles,
+    /** Temps sur les cibles depuis {@code debut}, seulement dans les plages si la limite le demande. */
+    private long tempsCompte(Limite l, Set<String> cibles, long debut, long maintenant) {
+        if (!l.dansPlage) {
+            return j.temps(cibles, debut, maintenant);
+        }
+        long total = 0;
+        for (long[] f : l.fenetres(debut, maintenant)) {
+            total += j.temps(cibles, f[0], f[1]);
+        }
+        return total;
+    }
+
+    private static int compterDepuis(Limite l, List<long[]> sessions, long debut) {
+        if (!l.dansPlage) {
+            return compterDepuis(sessions, debut);
+        }
+        int n = 0;
+        for (long[] s : sessions) {
+            if (s[0] >= debut && l.sAppliqueA(s[0])) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private boolean respectee(Limite l, Condition c, List<long[]> sessions, long[] courante, Set<String> cibles,
                               long maintenant, long tolerance, long[] detail) {
         long duree = courante == null ? 0 : maintenant - courante[0];
         switch (c.type) {
             case Condition.TEMPS: {
-                long utilise = j.temps(cibles, c.periode.debut(maintenant), maintenant);
+                long utilise = tempsCompte(l, cibles, c.periode.debut(maintenant), maintenant);
                 long restant = c.valeurDuJour(maintenant) * 60_000L - utilise;
-                detail[0] = c.periode.fin(maintenant);
+                detail[0] = glissante(c) ? dispoGlissante(l, cibles, maintenant, utilise - c.valeurDuJour(maintenant) * 60_000L)
+                        : c.periode.fin(maintenant);
                 detail[1] = restant;
                 return restant > 0;
             }
             case Condition.OUVERTURES: {
-                int ouvertures = compterDepuis(sessions, c.periode.debut(maintenant)) + (courante == null ? 1 : 0);
+                int ouvertures = compterDepuis(l, sessions, c.periode.debut(maintenant)) + (courante == null ? 1 : 0);
                 detail[0] = c.periode.fin(maintenant);
+                if (glissante(c)) {
+                    // Il faut que sortent de la fenêtre assez d'ouvertures anciennes.
+                    int enTrop = ouvertures - c.valeurDuJour(maintenant);
+                    long debut = c.periode.debut(maintenant);
+                    for (long[] s : sessions) {
+                        if (s[0] >= debut && --enTrop <= 0) {
+                            detail[0] = s[0] + 3_600_000L;
+                            break;
+                        }
+                    }
+                }
                 return ouvertures <= c.valeurDuJour(maintenant);
             }
             case Condition.DUREE_SESSION: {
@@ -161,7 +220,7 @@ final class Moteur {
                 return courante == null || restant > 0;
             }
             case Condition.SESSIONS: {
-                int nombre = compterDepuis(sessions, c.periode.debut(maintenant)) + (courante == null ? 1 : 0);
+                int nombre = compterDepuis(l, sessions, c.periode.debut(maintenant)) + (courante == null ? 1 : 0);
                 if (nombre > c.valeurDuJour(maintenant)) {
                     detail[0] = c.periode.fin(maintenant);
                     return false;
@@ -201,6 +260,25 @@ final class Moteur {
             default:
                 return true;
         }
+    }
+
+    private static boolean glissante(Condition c) {
+        return c.periode.unite == Periode.HEURE && c.periode.glissante;
+    }
+
+    /** Heure glissante : quand assez de temps ancien sera sorti de la fenêtre d'une heure. */
+    private long dispoGlissante(Limite l, Set<String> cibles, long maintenant, long enTrop) {
+        long aSortir = Math.max(1, enTrop + 1000);
+        long debut = maintenant - 3_600_000L;
+        for (Journal.Intervalle i : j.entre(cibles, debut, maintenant)) {
+            long a = Math.max(i.debut, debut);
+            long b = Math.min(i.fin, maintenant);
+            if (b - a >= aSortir) {
+                return a + aSortir + 3_600_000L;
+            }
+            aSortir -= Math.max(0, b - a);
+        }
+        return maintenant + 3_600_000L;
     }
 
     /**

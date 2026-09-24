@@ -29,7 +29,7 @@ public class LimiteDetailActivity extends Ecran {
         LinearLayout c = page(l.nomAffiche(donnees), true);
         actionEntete("Modifier", v -> startActivity(new Intent(this, LimiteEditActivity.class)
                 .putExtra(LimiteEditActivity.EXTRA_ID, l.id)));
-        long maintenant = System.currentTimeMillis();
+        long maintenant = Horloge.maintenant();
         Moteur moteur = new Moteur(this);
         Moteur.Resultat r = moteur.evaluer(l, maintenant);
 
@@ -57,7 +57,7 @@ public class LimiteDetailActivity extends Ecran {
             } else {
                 Ui.ajouter(etat, Ui.bouton(this, "▶ Bloque-moi ça pendant " + Ui.duree(immediat.valeur * 60_000L), Ui.ROUGE), 10)
                         .setOnClickListener(v -> {
-                            moteur.lancerBlocageImmediat(immediat, System.currentTimeMillis());
+                            moteur.lancerBlocageImmediat(immediat, Horloge.maintenant());
                             rafraichir();
                         });
             }
