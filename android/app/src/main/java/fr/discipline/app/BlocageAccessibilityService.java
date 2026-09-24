@@ -1,6 +1,7 @@
 package fr.discipline.app;
 
 import android.accessibilityservice.AccessibilityService;
+import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -77,6 +78,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
                 couperLeSon(maintenant);
                 grisaille(maintenant);
             }
+            Declencheurs.verifier(BlocageAccessibilityService.this, donnees, Horloge.maintenant());
             handler.postDelayed(this, TIC);
         }
     };
@@ -102,6 +104,33 @@ public class BlocageAccessibilityService extends AccessibilityService {
         }
     };
 
+    /** Appareils Bluetooth connectés, pour les déclencheurs de profil. */
+    private final BroadcastReceiver bluetooth = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent intent) {
+            BluetoothDevice appareil = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            if (appareil == null || !Declencheurs.autorise(c, Declencheurs.BLUETOOTH)) {
+                return;
+            }
+            String nom;
+            try {
+                nom = appareil.getName();
+            } catch (SecurityException e) {
+                return;
+            }
+            if (nom == null) {
+                return;
+            }
+            synchronized (Declencheurs.bluetooth) {
+                if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(intent.getAction())) {
+                    Declencheurs.bluetooth.add(nom);
+                } else {
+                    Declencheurs.bluetooth.remove(nom);
+                }
+            }
+        }
+    };
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
@@ -112,6 +141,9 @@ public class BlocageAccessibilityService extends AccessibilityService {
         IntentFilter filtre = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         filtre.addAction(Intent.ACTION_USER_PRESENT);
         registerReceiver(ecran, filtre);
+        IntentFilter bt = new IntentFilter(BluetoothDevice.ACTION_ACL_CONNECTED);
+        bt.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+        registerReceiver(bluetooth, bt);
         handler.postDelayed(tic, TIC);
     }
 
@@ -121,6 +153,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
         Grisaille.appliquer(this, false);
         try {
             unregisterReceiver(ecran);
+            unregisterReceiver(bluetooth);
         } catch (IllegalArgumentException ignore) {
             // déjà retiré
         }

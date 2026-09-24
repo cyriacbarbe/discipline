@@ -55,7 +55,12 @@ final class Donnees {
         String id = nouvelId();
         String nom = "";
         Set<String> limites = new TreeSet<>();
+        /** Allument ses limites tant que l'un d'eux est vrai (voir {@link Declencheurs}). */
+        List<Declencheurs.Declencheur> declencheurs = new ArrayList<>();
     }
+
+    /** Limites allumées par un déclencheur, qu'on éteindra quand il cessera. */
+    final Set<String> auto = new TreeSet<>();
 
     final Context contexte;
     private final SharedPreferences prefs;
@@ -135,6 +140,7 @@ final class Donnees {
         profils.clear();
         messages.clear();
         badges.clear();
+        auto.clear();
         suiviesApplis.clear();
         suiviesGroupes.clear();
         try {
@@ -167,8 +173,13 @@ final class Donnees {
             profil.id = p.optString("id", profil.id);
             profil.nom = p.optString("nom");
             lireChaines(p.optJSONArray("limites"), profil.limites);
+            JSONArray ds = p.optJSONArray("decl");
+            for (int j = 0; ds != null && j < ds.length(); j++) {
+                profil.declencheurs.add(Declencheurs.Declencheur.de(ds.getJSONObject(j)));
+            }
             profils.add(profil);
         }
+        lireChaines(o.optJSONArray("auto"), auto);
         profilActif = o.optString("profilActif", null);
         lireChaines(o.optJSONArray("messages"), messages);
         JSONObject bs = o.optJSONObject("badges");
@@ -222,7 +233,7 @@ final class Donnees {
     /** Le réglage seul, sans l'état du téléphone : ce qu'on exporte. */
     synchronized JSONObject exporter() {
         JSONObject o = json();
-        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances", "motifs"}) {
+        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances", "motifs", "auto"}) {
             o.remove(cle);
         }
         return o;
@@ -243,9 +254,14 @@ final class Donnees {
             o.put("groupes", gs);
             JSONArray ps = new JSONArray();
             for (Profil p : profils) {
-                ps.put(new JSONObject().put("id", p.id).put("nom", p.nom).put("limites", new JSONArray(p.limites)));
+                JSONArray ds = new JSONArray();
+                for (Declencheurs.Declencheur x : p.declencheurs) {
+                    ds.put(x.json());
+                }
+                ps.put(new JSONObject().put("id", p.id).put("nom", p.nom).put("limites", new JSONArray(p.limites))
+                        .put("decl", ds));
             }
-            o.put("profils", ps).put("profilActif", profilActif).put("messages", new JSONArray(messages))
+            o.put("profils", ps).put("auto", new JSONArray(auto)).put("profilActif", profilActif).put("messages", new JSONArray(messages))
                     .put("badges", new JSONObject(badges)).put("tolerance", toleranceSecondes)
                     .put("debutJournee", debutJourneeMinutes).put("suiviesApplis", new JSONArray(suiviesApplis))
                     .put("suiviesGroupes", new JSONArray(suiviesGroupes)).put("vacances", vacancesJusquA)
@@ -455,6 +471,17 @@ final class Donnees {
                 }
                 break;
             }
+            case "declencheurs": {
+                Profil p = profil(id);
+                JSONArray ds = ch.optJSONArray("liste");
+                if (p != null && ds != null) {
+                    p.declencheurs.clear();
+                    for (int j = 0; j < ds.length(); j++) {
+                        p.declencheurs.add(Declencheurs.Declencheur.de(ds.optJSONObject(j)));
+                    }
+                }
+                break;
+            }
             case "vacances":
                 vacancesJusquA = ch.optLong("jusqua");
                 break;
@@ -462,6 +489,7 @@ final class Donnees {
                 Profil p = profil(id);
                 if (p != null) {
                     profilActif = p.id;
+                    auto.clear(); // les limites appartiennent désormais au profil choisi
                     for (Limite l : limites) {
                         l.active = p.limites.contains(l.id);
                     }
