@@ -30,7 +30,8 @@ public class AntiTricheActivity extends Ecran {
         LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 12);
         carte.addView(Ui.texte(this, libre ? "Libre" : "Protégé", 20, libre ? Ui.TEXTE2 : Ui.VERT, true));
         carte.addView(Ui.petit(this, "Durcir une règle est toujours immédiat. Ces réglages ne freinent que "
-                + "les assouplissements : modifier, désactiver ou supprimer une limite active, partir en vacances…"));
+                + "les assouplissements : relâcher, désactiver ou supprimer une limite active, allonger la tolérance, "
+                + "ajouter un badge, importer un réglage, partir en vacances…"));
 
         LinearLayout reglages = Ui.ajouter(c, Ui.carte(this), 8);
         reglages.addView(Ui.lien(this, "Délai avant d’assouplir", delai == 0 ? "aucun" : Ui.duree(delai * 60_000L),

@@ -20,14 +20,26 @@ public class ParametresActivity extends Ecran {
 
         LinearLayout temps = Ui.ajouter(c, Ui.carte(this), 12);
         temps.addView(Ui.lien(this, "Tolérance de session", donnees.toleranceSecondes + " s",
-                v -> Choix.nombre(this, "Tolérance de session (s)", donnees.toleranceSecondes, x -> {
-                    if (x >= 0) {
+                v -> Choix.nombre(this, "Tolérance de session (s, 30 au plus)", donnees.toleranceSecondes, x -> {
+                    if (x < 0 || x == donnees.toleranceSecondes) {
+                        rafraichir();
+                    } else if (x > 30) {
+                        toast("30 s au plus : au-delà, on sortirait et reviendrait sans jamais ouvrir de nouvelle session.");
+                    } else if (x < donnees.toleranceSecondes) {
                         donnees.toleranceSecondes = x;
                         donnees.enregistrer();
+                        rafraichir();
+                    } else {
+                        try {
+                            garde(Donnees.changement("tolerance", "tolerance").put("valeur", x),
+                                    "passer la tolérance à " + x + " s", null);
+                        } catch (Exception ignore) {
+                            // JSON simple, n'échoue pas
+                        }
                     }
-                    rafraichir();
                 })));
-        temps.addView(Ui.petit(this, "Deux passages sur une appli séparés de moins que ça comptent pour une seule session."));
+        temps.addView(Ui.petit(this, "Revenir sur une appli moins de ce temps après l’avoir quittée (écran éteint compris) "
+                + "continue la même session ; au-delà, c’est une nouvelle ouverture."));
         temps.addView(Ui.lien(this, "Début de la journée", Ui.heure(donnees.debutJourneeMinutes),
                 v -> Choix.heure(this, donnees.debutJourneeMinutes, m -> {
                     donnees.debutJourneeMinutes = m;

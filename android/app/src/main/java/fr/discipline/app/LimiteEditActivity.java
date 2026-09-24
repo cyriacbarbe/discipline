@@ -511,8 +511,8 @@ public class LimiteEditActivity extends Ecran {
     // ---- Enregistrer, supprimer --------------------------------------------
 
     private void enregistrer() {
-        if (l.applis.isEmpty() && l.groupes.isEmpty()) {
-            toast("Choisis au moins une appli ou un groupe.");
+        if (l.applis.isEmpty() && l.groupes.isEmpty() && !l.toutSauf && l.sites.isEmpty()) {
+            toast("Choisis au moins une appli, un groupe ou un site.");
             return;
         }
         if (l.action == Limite.AUTRE_APPLI && l.appliAlternative == null) {
@@ -527,6 +527,12 @@ public class LimiteEditActivity extends Ecran {
                 profil.limites.add(l.id);
                 donnees.enregistrer();
             }
+            finish();
+            return;
+        }
+        if (l.aussiStricteQue(ancienne)) {
+            // durcir ne se discute pas : appliqué tout de suite
+            donnees.appliquer(Donnees.changementLimite(l, false));
             finish();
             return;
         }

@@ -174,7 +174,7 @@ final class Donnees {
                 badges.put(id, bs.optString(id));
             }
         }
-        toleranceSecondes = o.optInt("tolerance", 5);
+        toleranceSecondes = Math.min(30, Math.max(0, o.optInt("tolerance", 5)));
         debutJourneeMinutes = o.optInt("debutJournee");
         lireChaines(o.optJSONArray("suiviesApplis"), suiviesApplis);
         lireChaines(o.optJSONArray("suiviesGroupes"), suiviesGroupes);
@@ -450,7 +450,7 @@ final class Donnees {
                 badges.put(id, ch.optString("nom", "Badge"));
                 break;
             case "tolerance":
-                toleranceSecondes = ch.optInt("valeur", 5);
+                toleranceSecondes = Math.min(30, Math.max(0, ch.optInt("valeur", 5)));
                 break;
             case "import":
                 remplacer(ch.optJSONObject("reglages"));
