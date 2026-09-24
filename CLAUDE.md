@@ -55,3 +55,6 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   journal gardé sans limite, historique repris d'Android (`Historique`,
   « Accès aux données d'utilisation » : détail ≈ 10 j dans le journal, totaux
   plus anciens dans `historique.txt`, importés une seule fois).
+- v1.2 : se bloquer mieux (strict, frictions, sites, noir et blanc…),
+  déclencheurs de profil, personne de confiance, bilan hebdo, widget — détail
+  en fin de `docs/CAHIER_DES_CHARGES.md`.

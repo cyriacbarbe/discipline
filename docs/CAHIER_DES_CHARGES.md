@@ -107,3 +107,30 @@ fait avec ET.
   7 jours précédents.
 - **Friction et badge** passent toujours par l'écran de blocage, quelle que
   soit l'action choisie.
+
+## Livré en v1.2 (24/09/2026) — ajouts et limites connues
+
+- **Corrigé depuis la v1.0** : chaque badge n'ouvre que les règles qui le
+  citent (aucun coché = tous) ; la rallonge ne sert qu'une fois la limite
+  atteinte ; une ouverture compte pour une session (tolérance réglable) ;
+  administrateur de l'appareil disponible ; bloquer une appli bloque son site.
+- **Se bloquer mieux** : mode strict (pages des Réglages qui arrêteraient
+  Discipline refermées), frictions (phrase à recopier, motif écrit, calcul,
+  attente qui double), rallonge progressive ou justifiée, Shorts/Reels, sites et
+  mots-clés, notifications en sourdine, « tout le téléphone sauf… », noir et
+  blanc (exige `adb shell pm grant fr.discipline.app
+  android.permission.WRITE_SECURE_SETTINGS`), dupliquer une limite.
+- **Déclencheurs de profil** (lieu, Wi-Fi, Bluetooth, en charge, agenda, Ne pas
+  déranger) : vérifiés toutes les 30 s depuis le service ; ils allument les
+  limites du profil *en plus* des autres, puis les rendent, sans jamais rien
+  éteindre. Le Bluetooth ne voit que les appareils connectés après le
+  démarrage du service. Lieu : position réseau toutes les 5 min au plus.
+- **Personne de confiance** : dix codes à usage unique (hachés), affichés une
+  seule fois ; un code passe le délai d'assouplissement, sans rien changer au
+  badge NFC. Honnêteté requise : on voit les codes en les créant.
+- **Bilan hebdomadaire** : notification le lundi dès 9 h (semaine lundi →
+  dimanche), écran « Bilan » depuis l'historique, envoi par SMS ou partage.
+  Les compteurs de blocages ne sont gardés que 40 jours.
+- **Widget** : temps du jour, limites qui bloquent ou comptent (5 lignes),
+  bouton « Concentration » qui lance la limite à blocage immédiat (l'accueil
+  s'il y en a plusieurs). Rafraîchi chaque minute par le service.
