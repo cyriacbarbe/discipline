@@ -157,3 +157,22 @@ fait avec ET.
   aussi l'heure, semaine tout. C'est un assouplissement : passe par l'anti-triche.
 - **⚙ > Widget d'accueil** : l'ajouter (`requestPinAppWidget`), choisir ce qu'il
   montre (temps, limites, concentration) et quelles limites.
+
+## v1.4 — le widget se règle widget par widget
+
+- **Un réglage par widget** (`Donnees.ReglageWidget`, rangé par identifiant
+  Android dans `widgets`) ; l'ancien réglage unique devient le « réglage de
+  départ » des prochains. Le réglage s'ouvre à la pose (`android:configure`),
+  par appui long > Réglages (Android 12+, `reconfigurable`) ou ⚙ > Widget
+  d'accueil, qui liste les widgets posés. Retiré de l'écran, son réglage part
+  (`onDeleted`) ; restauré, il suit la renumérotation (`onRestored`).
+- **Contenus** : temps du jour + hier à la même heure, profil actif, limites
+  (1 à 10 lignes) avec sessions / ouvertures restantes, 0 à 5 applis les plus
+  utilisées, bouton Concentration.
+- **Actions** : le profil touché ouvre `WidgetChoixActivity` pour en changer
+  (même anti-triche qu'à l'écran Profils : `Ecran.activerProfil`) ; le bouton
+  lance une concentration choisie, ou demande laquelle ; toucher le temps ou
+  les limites ouvre Historique, Accueil, Bilan ou rien.
+- **Apparence** : fond (sombre, noir, bleu nuit, vert) teinté sur une image
+  (`widget_fond`) avec opacité 0–100 %, trois tailles de texte, mode compact
+  sur une ligne (`widget_compact.xml`, mêmes identifiants).

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
@@ -59,6 +60,87 @@ final class Donnees {
         List<Declencheurs.Declencheur> declencheurs = new ArrayList<>();
     }
 
+    /** Ce qu'un widget d'accueil montre, à quoi il ressemble et ce que font ses appuis. */
+    static class ReglageWidget {
+        static final String[] FONDS = {"Sombre", "Noir", "Bleu nuit", "Vert"};
+        static final int[] COULEURS_FOND = {0xFF161B22, 0xFF000000, 0xFF14213D, 0xFF12291C};
+        static final String[] TAILLES = {"Petit", "Normal", "Grand"};
+        static final float[] ECHELLES = {0.85f, 1f, 1.2f};
+        static final String[] CIBLES_APPUI = {"Historique", "Accueil", "Bilan", "Rien"};
+
+        boolean temps = true;
+        boolean hier;
+        boolean profil;
+        boolean limites = true;
+        boolean quotas = true;
+        int lignes = 5;
+        final Set<String> cachees = new TreeSet<>();
+        int applis;
+        boolean concentration = true;
+        /** Condition « blocage immédiat » lancée par le bouton ; vide = demander s'il y en a plusieurs. */
+        String concentrationId = "";
+        boolean compact;
+        int fond;
+        int opacite = 90;
+        int taille = 1;
+        int appuiTemps;
+        int appuiLimites = 1;
+
+        JSONObject json() throws JSONException {
+            return new JSONObject().put("temps", temps).put("hier", hier).put("profil", profil)
+                    .put("limites", limites).put("quotas", quotas).put("lignes", lignes)
+                    .put("cachees", new JSONArray(cachees)).put("applis", applis).put("conc", concentration)
+                    .put("concId", concentrationId).put("compact", compact).put("fond", fond)
+                    .put("opacite", opacite).put("taille", taille).put("appuiTemps", appuiTemps)
+                    .put("appuiLimites", appuiLimites);
+        }
+
+        static ReglageWidget de(JSONObject w) {
+            ReglageWidget r = new ReglageWidget();
+            r.temps = w.optBoolean("temps", true);
+            r.hier = w.optBoolean("hier");
+            r.profil = w.optBoolean("profil");
+            r.limites = w.optBoolean("limites", true);
+            r.quotas = w.optBoolean("quotas", true);
+            r.lignes = Math.max(1, Math.min(10, w.optInt("lignes", 5)));
+            lireChaines(w.optJSONArray("cachees"), r.cachees);
+            r.applis = Math.max(0, Math.min(5, w.optInt("applis")));
+            r.concentration = w.optBoolean("conc", true);
+            r.concentrationId = w.optString("concId");
+            r.compact = w.optBoolean("compact");
+            r.fond = Math.max(0, Math.min(FONDS.length - 1, w.optInt("fond")));
+            r.opacite = Math.max(0, Math.min(100, w.optInt("opacite", 90)));
+            r.taille = Math.max(0, Math.min(TAILLES.length - 1, w.optInt("taille", 1)));
+            r.appuiTemps = Math.max(0, Math.min(CIBLES_APPUI.length - 1, w.optInt("appuiTemps")));
+            r.appuiLimites = Math.max(0, Math.min(CIBLES_APPUI.length - 1, w.optInt("appuiLimites", 1)));
+            return r;
+        }
+
+        ReglageWidget copie() {
+            try {
+                return de(json());
+            } catch (JSONException e) {
+                return new ReglageWidget();
+            }
+        }
+    }
+
+    /** Le réglage d'un widget posé ; celui par défaut tant qu'il n'a pas été réglé à part. */
+    ReglageWidget widget(int id) {
+        ReglageWidget r = widgets.get(id);
+        return r != null ? r : widgetDefaut;
+    }
+
+    /** Le réglage propre à ce widget, créé depuis celui par défaut s'il n'en a pas encore. */
+    ReglageWidget widgetAPart(int id) {
+        ReglageWidget r = widgets.get(id);
+        if (r == null) {
+            r = widgetDefaut.copie();
+            widgets.put(id, r);
+        }
+        return r;
+    }
+
     /** Limites allumées par un déclencheur, qu'on éteindra quand il cessera. */
     final Set<String> auto = new TreeSet<>();
 
@@ -78,11 +160,9 @@ final class Donnees {
     final Set<String> suiviesApplis = new TreeSet<>();
     final Set<String> suiviesGroupes = new TreeSet<>();
     long vacancesJusquA;
-    /** Widget d'accueil : ce qu'il montre, et les limites qu'il tait. */
-    boolean widgetTemps = true;
-    boolean widgetLimites = true;
-    boolean widgetConcentration = true;
-    final Set<String> widgetCachees = new TreeSet<>();
+    /** Réglage des prochains widgets posés, puis celui de chaque widget (par identifiant Android). */
+    ReglageWidget widgetDefaut = new ReglageWidget();
+    final Map<Integer, ReglageWidget> widgets = new TreeMap<>();
 
     int delaiAssouplissement;
     boolean nfcPourModifier;
@@ -152,7 +232,8 @@ final class Donnees {
         auto.clear();
         suiviesApplis.clear();
         suiviesGroupes.clear();
-        widgetCachees.clear();
+        widgetDefaut = new ReglageWidget();
+        widgets.clear();
         try {
             // appelé pendant le parcours des changements en attente : ne pas y toucher
             JSONObject r = new JSONObject(o.toString());
@@ -206,10 +287,18 @@ final class Donnees {
         vacancesJusquA = o.optLong("vacances");
         JSONObject w = o.optJSONObject("widget");
         if (w != null) {
-            widgetTemps = w.optBoolean("temps", true);
-            widgetLimites = w.optBoolean("limites", true);
-            widgetConcentration = w.optBoolean("conc", true);
-            lireChaines(w.optJSONArray("cachees"), widgetCachees);
+            widgetDefaut = ReglageWidget.de(w);
+        }
+        JSONObject ws = o.optJSONObject("widgets");
+        if (ws != null) {
+            for (Iterator<String> it = ws.keys(); it.hasNext(); ) {
+                String cle = it.next();
+                try {
+                    widgets.put(Integer.parseInt(cle), ReglageWidget.de(ws.getJSONObject(cle)));
+                } catch (Exception ignore) {
+                    // entrée abîmée : ce widget reprendra le réglage par défaut
+                }
+            }
         }
         delaiAssouplissement = o.optInt("delai");
         nfcPourModifier = o.optBoolean("nfcModif");
@@ -286,8 +375,7 @@ final class Donnees {
                     .put("badges", new JSONObject(badges)).put("tolerance", toleranceSecondes)
                     .put("debutJournee", debutJourneeMinutes).put("suiviesApplis", new JSONArray(suiviesApplis))
                     .put("suiviesGroupes", new JSONArray(suiviesGroupes)).put("vacances", vacancesJusquA)
-                    .put("widget", new JSONObject().put("temps", widgetTemps).put("limites", widgetLimites)
-                            .put("conc", widgetConcentration).put("cachees", new JSONArray(widgetCachees)))
+                    .put("widget", widgetDefaut.json()).put("widgets", widgetsJson())
                     .put("delai", delaiAssouplissement).put("nfcModif", nfcPourModifier)
                     .put("alerte", alerteAccessibilite).put("strict", modeStrict).put("motifs", new JSONArray(motifs)).put("enAttente", new JSONArray(enAttente))
                     .put("etats", etats).put("compteurs", compteurs)
@@ -300,6 +388,14 @@ final class Donnees {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private JSONObject widgetsJson() throws JSONException {
+        JSONObject ws = new JSONObject();
+        for (Map.Entry<Integer, ReglageWidget> e : widgets.entrySet()) {
+            ws.put(String.valueOf(e.getKey()), e.getValue().json());
+        }
+        return ws;
     }
 
     // ---- Accès -------------------------------------------------------------

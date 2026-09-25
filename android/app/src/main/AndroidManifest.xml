@@ -75,7 +75,15 @@
         <activity android:name=".AntiTricheActivity" android:exported="false" />
         <activity android:name=".HistoriqueActivity" android:exported="false" />
         <activity android:name=".BilanActivity" android:exported="false" />
-        <activity android:name=".WidgetActivity" android:exported="false" />
+        <!-- Exportée : le lanceur l’ouvre pour régler un widget qu’on vient de poser. -->
+        <activity
+            android:name=".WidgetActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".WidgetChoixActivity" android:exported="false" />
 
         <activity
             android:name=".NfcActivity"

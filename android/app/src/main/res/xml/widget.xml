@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mis à jour chaque minute par le service ; la demi-heure n'est qu'un filet. -->
+<!-- Mis à jour chaque minute par le service ; la demi-heure n'est qu'un filet.
+     Chaque widget se règle à sa pose, puis par appui long > Réglages (Android 12+) ou ⚙ > Widget. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="fr.discipline.app.WidgetActivity"
     android:initialLayout="@layout/widget"
     android:minWidth="250dp"
     android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />

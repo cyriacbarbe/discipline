@@ -60,3 +60,5 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   en fin de `docs/CAHIER_DES_CHARGES.md`.
 - v1.3 : limites plus naturelles (intentions, réglettes, jauges), zéro permis,
   écran de blocage détaillé, remise à zéro, réglage du widget.
+- v1.4 : widget réglé widget par widget (contenus, profil, concentration choisie,
+  appuis, fond, opacité, taille, mode compact).

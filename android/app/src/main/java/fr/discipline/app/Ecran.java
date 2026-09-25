@@ -255,6 +255,25 @@ public abstract class Ecran extends Activity {
                 .show();
     }
 
+    /** Passer à un profil. Éteindre une limite active assouplit : anti-triche dans ce cas. */
+    protected void activerProfil(Donnees.Profil p, Runnable apres) {
+        boolean assouplit = false;
+        for (Limite l : donnees.limites) {
+            if (l.active && !p.limites.contains(l.id)) {
+                assouplit = true;
+            }
+        }
+        if (assouplit) {
+            garde(Donnees.changement("profil", p.id), "passer au profil « " + p.nom + " »", apres);
+        } else {
+            donnees.appliquer(Donnees.changement("profil", p.id));
+            if (apres != null) {
+                apres.run();
+            }
+            rafraichir();
+        }
+    }
+
     static Donnees.Groupe copieGroupe(Donnees.Groupe g) {
         try {
             return Donnees.Groupe.de(g.json());

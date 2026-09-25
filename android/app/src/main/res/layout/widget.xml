@@ -1,53 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Le fond est une image : sa couleur et sa transparence se règlent widget par widget. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_fond"
-    android:orientation="vertical"
-    android:padding="14dp">
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_fond"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_fond" />
 
     <LinearLayout
-        android:id="@+id/widget_haut"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="bottom"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <LinearLayout
+            android:id="@+id/widget_haut"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/widget_temps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#ECEFF4"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_legende"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="8dp"
+                android:paddingBottom="3dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textColor="#9AA3AF"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/widget_temps"
-            android:layout_width="wrap_content"
+            android:id="@+id/widget_profil"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#ECEFF4"
-            android:textSize="24sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingStart="8dp"
-            android:paddingBottom="3dp"
-            android:text="aujourd’hui"
-            android:textColor="#9AA3AF"
+            android:paddingTop="4dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="#2EA043"
             android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/widget_etats"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingTop="6dp"
+            android:textColor="#ECEFF4"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/widget_applis"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:textColor="#9AA3AF"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/widget_lancer"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/widget_bouton"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/widget_etats"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:paddingTop="6dp"
-        android:textColor="#ECEFF4"
-        android:textSize="13sp" />
-
-    <Button
-        android:id="@+id/widget_lancer"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_marginTop="6dp"
-        android:background="@drawable/widget_bouton"
-        android:textAllCaps="false"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:textStyle="bold" />
-</LinearLayout>
+</FrameLayout>

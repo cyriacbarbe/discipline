@@ -61,7 +61,7 @@ public class ProfilsActivity extends Ecran {
             }
             carte.addView(Ui.lien(this, "＋ Déclencheur automatique", null, v -> choisirType(p)));
             if (!actif) {
-                Ui.ajouter(carte, Ui.boutonDiscret(this, "Activer"), 10).setOnClickListener(v -> activer(p));
+                Ui.ajouter(carte, Ui.boutonDiscret(this, "Activer"), 10).setOnClickListener(v -> activerProfil(p, null));
             }
         }
         boutonBas(c, "＋ Nouveau profil", v -> Choix.texte(this, "Nom du profil", "", "Travail", t -> {
@@ -262,21 +262,5 @@ public class ProfilsActivity extends Ecran {
                 })
                 .setNegativeButton("Annuler", null)
                 .show();
-    }
-
-    /** Éteindre une limite active assouplit : anti-triche dans ce cas. */
-    private void activer(Donnees.Profil p) {
-        boolean assouplit = false;
-        for (Limite l : donnees.limites) {
-            if (l.active && !p.limites.contains(l.id)) {
-                assouplit = true;
-            }
-        }
-        if (assouplit) {
-            garde(Donnees.changement("profil", p.id), "passer au profil « " + p.nom + " »", null);
-        } else {
-            donnees.appliquer(Donnees.changement("profil", p.id));
-            rafraichir();
-        }
     }
 }
