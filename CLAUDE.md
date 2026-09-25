@@ -62,3 +62,5 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   écran de blocage détaillé, remise à zéro, réglage du widget.
 - v1.4 : widget réglé widget par widget (contenus, profil, concentration choisie,
   appuis, fond, opacité, taille, mode compact).
+- v1.5 : réactiver une limite la remet à zéro, alerte qui nomme la limite, sessions
+  = pauses d’horloge par-dessus les autres limites, rien ne compte écran verrouillé.

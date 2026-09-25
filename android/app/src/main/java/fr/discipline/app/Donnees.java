@@ -494,6 +494,18 @@ final class Donnees {
         return e;
     }
 
+    /** Réactiver une limite la fait repartir de zéro : ce qui a été consommé avant ne compte plus. */
+    void activer(Limite l, boolean oui) {
+        if (oui && !l.active) {
+            try {
+                etat(l.id).put("activee", Horloge.maintenant());
+            } catch (Exception ignore) {
+                // clé non nulle
+            }
+        }
+        l.active = oui;
+    }
+
     /** Dernière remise à zéro des compteurs de cette unité (heure, jour, semaine), 0 = jamais. */
     long remise(int unite) {
         return etat("remise").optLong(String.valueOf(unite));
@@ -593,7 +605,7 @@ final class Donnees {
             case "active": {
                 Limite l = limite(id);
                 if (l != null) {
-                    l.active = ch.optBoolean("valeur");
+                    activer(l, ch.optBoolean("valeur"));
                 }
                 break;
             }
@@ -617,7 +629,7 @@ final class Donnees {
                     profilActif = p.id;
                     auto.clear(); // les limites appartiennent désormais au profil choisi
                     for (Limite l : limites) {
-                        l.active = p.limites.contains(l.id);
+                        activer(l, p.limites.contains(l.id));
                     }
                 }
                 break;

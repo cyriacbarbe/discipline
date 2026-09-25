@@ -11,7 +11,7 @@ public class ChoixTypeActivity extends Ecran {
     /** {emoji + titre, exemple, type de règle, modèle}. */
     private static final Object[][] INTENTIONS = {
             {"⏱  Limiter mon temps", "Par exemple 30 min par jour sur Instagram.", Condition.TEMPS, null},
-            {"🎟  Quelques sessions par jour", "3 sessions de 20 min, puis c’est fermé.", Condition.SESSIONS, null},
+            {"🎟  Quelques sessions par jour", "3 sessions de 20 min où les autres limites ne bloquent plus.", Condition.SESSIONS, null},
             {"🔢  Moins ouvrir une appli", "10 ouvertures par jour au plus.", Condition.OUVERTURES, null},
             {"⛔  Bloquer complètement", "Plus d’accès du tout tant que la limite est active.", Condition.TEMPS,
                     LimiteEditActivity.MODELE_BLOQUER},

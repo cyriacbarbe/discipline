@@ -151,7 +151,7 @@ class Condition {
             case TEMPS: return "Pas plus de X min par heure, jour ou semaine.";
             case OUVERTURES: return "Pas plus de N ouvertures par heure, jour ou semaine.";
             case DUREE_SESSION: return "Jamais plus de X min d’affilée.";
-            case SESSIONS: return "N sessions par période, chacune d’une durée maximale.";
+            case SESSIONS: return "N sessions par période : pendant X min à l’horloge, les autres limites ne bloquent plus ces applis.";
             case PAUSE: return "Après avoir fermé l’appli, attendre X min.";
             case PAUSE_PROPORTIONNELLE: return "Attente = temps passé × coefficient.";
             case FRICTION: return "Compte à rebours de X s avant d’accéder à l’appli.";

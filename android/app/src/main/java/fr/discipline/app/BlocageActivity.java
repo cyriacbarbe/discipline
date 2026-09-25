@@ -1,6 +1,9 @@
 package fr.discipline.app;
 
 import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Handler;
@@ -143,6 +146,18 @@ public class BlocageActivity extends Ecran {
             rallonge(c, moteur, maintenant);
         }
 
+        if (r.bloque) {
+            Limite finie = moteur.sessionFinie(paquet, maintenant, 5 * 60_000L);
+            if (finie != null) {
+                titre.setText("⏱ Session terminée");
+                Ui.ajouter(c, Ui.texte(this, "Ta session « " + finie.nomAffiche(donnees) + " » est terminée.",
+                        17, Ui.TEXTE, true), 8).setGravity(Gravity.CENTER);
+            }
+            Ui.ajouter(c, Ui.texte(this, appli + " est bloquée par « " + limite.nomAffiche(donnees) + " ».",
+                    15, Ui.ORANGE, true), 12).setGravity(Gravity.CENTER);
+            session(c, moteur, maintenant);
+        }
+
         Button fermer = Ui.ajouter(c, Ui.boutonDiscret(this, "Fermer"), 32);
         fermer.setOnClickListener(v -> fermer());
     }
@@ -157,14 +172,6 @@ public class BlocageActivity extends Ecran {
         String periode = c.periode.enCours();
         boolean jaugeDeLaCause = r.jauge == c && r.jaugeMax > 0;
         switch (c.type) {
-            case Condition.SESSIONS:
-                if (n == 0) {
-                    return "Aucune session n’est autorisée " + periode + ".";
-                }
-                if (jaugeDeLaCause && r.jaugeFait < r.jaugeMax) {
-                    return "Ta session a atteint ses " + Condition.minutes(c.valeur2) + ".";
-                }
-                return "Tu as déjà utilisé tes " + n + " session" + (n > 1 ? "s" : "") + " " + periode + ".";
             case Condition.OUVERTURES:
                 return n == 0 ? "Aucune ouverture n’est autorisée " + periode + "."
                         : "Tu as déjà ouvert " + appli + " " + n + " fois " + periode + ", c’est ton maximum.";
@@ -195,8 +202,8 @@ public class BlocageActivity extends Ecran {
 
         Condition cause = r.cause;
         boolean semaine = cause != null && cause.aPeriode() && cause.periode.unite == Periode.SEMAINE;
-        long depuis = cause != null && cause.aPeriode() ? moteur.debutCompte(cause, maintenant)
-                : Math.max(new Periode().debut(maintenant), donnees.remise(Periode.JOUR));
+        long depuis = cause != null && cause.aPeriode() ? moteur.debutCompte(limite, cause, maintenant)
+                : Math.max(new Periode().debut(maintenant), moteur.depuis(limite, Periode.JOUR));
         List<long[]> sessions = Journal.get(this).sessions(donnees.cibles(limite), depuis, maintenant,
                 donnees.toleranceSecondes * 1000L);
         LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
@@ -333,6 +340,52 @@ public class BlocageActivity extends Ecran {
             }
         };
         minuterie.run();
+    }
+
+    /** Une limite de sessions couvre l'appli : l'ouvrir quand même en consomme une, à l'horloge. */
+    private void session(LinearLayout c, Moteur moteur, long maintenant) {
+        Limite s = moteur.sessionPossible(paquet, maintenant);
+        if (s == null) {
+            return;
+        }
+        Condition cond = Moteur.condSessions(s);
+        int restantes = moteur.sessionsRestantes(s, cond, maintenant);
+        LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 24);
+        carte.addView(Ui.section(this, "Session « " + s.nomAffiche(donnees) + " »"));
+        carte.addView(Ui.corps(this, "Si tu veux utiliser cette appli, ça te comptera comme une session : "
+                + Condition.minutes(cond.valeur2) + " à l’horloge, pendant lesquelles toutes ses applis sont libres. "
+                + "Encore " + restantes + " session" + (restantes > 1 ? "s" : "") + " " + cond.periode.enCours() + "."));
+        Ui.ajouter(carte, Ui.boutonPlein(this, "Lancer une session de " + Condition.minutes(cond.valeur2)), 12)
+                .setOnClickListener(v -> {
+                    long debut = Horloge.maintenant();
+                    long fin = moteur.lancerSession(s, debut);
+                    minuteur(s, debut, fin);
+                    ouvrirAppli();
+                });
+    }
+
+    /** Compte à rebours dans les notifications, qui s'efface tout seul à la fin de la session. */
+    private void minuteur(Limite s, long debut, long fin) {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        nm.createNotificationChannel(new NotificationChannel("session", "Session en cours",
+                NotificationManager.IMPORTANCE_LOW));
+        Notification n = new Notification.Builder(this, "session")
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle("Session « " + s.nomAffiche(donnees) + " »")
+                .setContentText("Jusqu’à " + new SimpleDateFormat("HH:mm", Locale.FRANCE).format(new Date(fin))
+                        + " : ses applis sont libres.")
+                .setWhen(fin)
+                .setShowWhen(true)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setOngoing(true)
+                .setTimeoutAfter(fin - debut)
+                .build();
+        try {
+            nm.notify(s.id.hashCode(), n);
+        } catch (SecurityException ignore) {
+            // notifications refusées : les bulles préviennent quand même
+        }
     }
 
     private void rallonge(LinearLayout c, Moteur moteur, long maintenant) {

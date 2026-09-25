@@ -133,7 +133,7 @@ final class Declencheurs {
         for (Limite l : d.limites) {
             if (voulues.contains(l.id)) {
                 if (!l.active) {
-                    l.active = true;
+                    d.activer(l, true);
                     d.auto.add(l.id);
                     change = true;
                 }

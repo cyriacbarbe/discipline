@@ -1,6 +1,7 @@
 package fr.discipline.app;
 
 import android.accessibilityservice.AccessibilityService;
+import android.app.KeyguardManager;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -14,6 +15,7 @@ import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.view.Gravity;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
@@ -61,10 +63,14 @@ public class BlocageAccessibilityService extends AccessibilityService {
     private long dernierBlocage;
     private String dernierBloque;
     private long dernierEnregistrement;
+    private long finAnnoncee;
 
     private final Runnable tic = new Runnable() {
         @Override
         public void run() {
+            if (ecranAllume && !enUsage()) {
+                eteindre(); // écran coupé ou verrouillé sans qu'on l'ait su : rien ne compte plus
+            }
             if (ecranAllume) {
                 long maintenant = Horloge.maintenant();
                 if (maintenant - dernierEnregistrement > 60_000L) {
@@ -88,15 +94,8 @@ public class BlocageAccessibilityService extends AccessibilityService {
     private final BroadcastReceiver ecran = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent intent) {
-            long maintenant = Horloge.maintenant();
             if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
-                ecranAllume = false;
-                avantExtinction = premierPlan;
-                premierPlan = null;
-                cle = null;
-                journal.fermer(maintenant);
-                Grisaille.appliquer(c, false);
-                donnees.enregistrer();
+                eteindre();
             } else if (Intent.ACTION_USER_PRESENT.equals(intent.getAction())) {
                 ecranAllume = true;
                 if (avantExtinction != null && premierPlan == null) {
@@ -105,6 +104,27 @@ public class BlocageAccessibilityService extends AccessibilityService {
             }
         }
     };
+
+    private void eteindre() {
+        ecranAllume = false;
+        if (premierPlan != null) {
+            avantExtinction = premierPlan;
+        }
+        premierPlan = null;
+        cle = null;
+        journal.fermer(Horloge.maintenant());
+        Grisaille.appliquer(this, false);
+        donnees.enregistrer();
+    }
+
+    /**
+     * Écran allumé et déverrouillé. Sinon rien ne compte : une appli de sommeil
+     * ou un réveil posés sur l'écran verrouillé toute la nuit ne sont pas de l'usage.
+     */
+    private boolean enUsage() {
+        return getSystemService(PowerManager.class).isInteractive()
+                && !getSystemService(KeyguardManager.class).isKeyguardLocked();
+    }
 
     /** Appareils Bluetooth connectés, pour les déclencheurs de profil. */
     private final BroadcastReceiver bluetooth = new BroadcastReceiver() {
@@ -184,6 +204,9 @@ public class BlocageAccessibilityService extends AccessibilityService {
         if (paquet == null || classe == null || !estActivite(paquet.toString(), classe.toString())) {
             return;
         }
+        if (!enUsage()) {
+            return;
+        }
         ecranAllume = true;
         changerPremierPlan(paquet.toString());
     }
@@ -256,6 +279,12 @@ public class BlocageAccessibilityService extends AccessibilityService {
         if (paquet.equals(dernierBloque) && maintenant - dernierBlocage < 1500) {
             return;
         }
+        // Une session en cours : toutes les applis de sa limite sont libres jusqu'à la fin, à l'horloge.
+        Limite session = moteur.sessionEnCours(paquet, maintenant);
+        if (session != null) {
+            bulles(session, paquet, moteur.finSession(session, maintenant) - maintenant);
+            return;
+        }
         List<Limite> limites = moteur.limitesPour(paquet, maintenant);
         Limite bloquante = null;
         Moteur.Resultat resultatBloquant = null;
@@ -274,6 +303,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
             }
         }
         if (bloquante == null) {
+            annoncerFinDeSession(paquet, maintenant);
             return;
         }
         if (resultatBloquant.ouverture) {
@@ -288,7 +318,15 @@ public class BlocageAccessibilityService extends AccessibilityService {
 
     private void agir(Limite l, Moteur.Resultat r, String paquet) {
         int type = r.cause == null ? 0 : r.cause.type;
-        boolean ecranObligatoire = type == Condition.FRICTION || type == Condition.NFC || paquet.equals(sortieDImage);
+        long maintenant = Horloge.maintenant();
+        // Une session à proposer ou qui vient de finir : c'est l'écran de blocage qui l'explique.
+        boolean ecranObligatoire = type == Condition.FRICTION || type == Condition.NFC || paquet.equals(sortieDImage)
+                || moteur.sessionPossible(paquet, maintenant) != null
+                || moteur.sessionFinie(paquet, maintenant, 5 * 60_000L) != null;
+        String dispo = r.dispoA > 0 ? ", de nouveau dans " + Ui.duree(r.dispoA - maintenant) : "";
+        String raison = r.cause == null ? "limite atteinte" : r.cause.resume();
+        String alerte = "🔒 " + Applications.nom(this, paquet) + " est bloquée par « " + l.nomAffiche(donnees)
+                + " » : " + raison + dispo;
         sortieDImage = null;
         // Un site ou des Shorts : on revient en arrière dans la même appli, sans la quitter.
         boolean partie = !paquet.equals(premierPlan);
@@ -297,6 +335,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
             if (autre != null) {
                 autre.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(autre);
+                afficherBulle(alerte, 5000);
                 return;
             }
         }
@@ -314,14 +353,28 @@ public class BlocageAccessibilityService extends AccessibilityService {
             blocage.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(blocage);
         } else {
-            String dispo = r.dispoA > 0 ? ", de nouveau dans " + Ui.duree(r.dispoA - Horloge.maintenant()) : "";
-            String raison = r.cause == null ? "limite atteinte" : r.cause.resume();
-            Toast.makeText(this, Applications.nom(this, paquet) + " : " + raison + dispo, Toast.LENGTH_LONG).show();
+            afficherBulle(alerte, 5000);
+        }
+    }
+
+    /** Une session vient de finir sur une appli qu'aucune autre limite ne bloque : on le dit quand même. */
+    private void annoncerFinDeSession(String paquet, long maintenant) {
+        Limite finie = moteur.sessionFinie(paquet, maintenant, 60_000L);
+        if (finie == null) {
+            return;
+        }
+        long fin = donnees.etat(Moteur.condSessions(finie).id).optLong("fin");
+        if (fin != finAnnoncee) {
+            finAnnoncee = fin;
+            afficherBulle("⏱ Session « " + finie.nomAffiche(donnees) + " » terminée", 5000);
         }
     }
 
     /** Premier blocage qui vise ce paquet maintenant, sans rien compter (null = libre). */
     private Moteur.Resultat bloque(String paquet, long maintenant) {
+        if (moteur.sessionEnCours(paquet, maintenant) != null) {
+            return null;
+        }
         for (Limite l : moteur.limitesPour(paquet, maintenant)) {
             Moteur.Resultat r = moteur.evaluer(l, maintenant);
             if (r.bloque) {
@@ -502,13 +555,13 @@ public class BlocageAccessibilityService extends AccessibilityService {
             long ms = seuil * 60_000L;
             if (avant > ms && restant <= ms) {
                 long minutes = Math.max(1, (restant + 59_999L) / 60_000L);
-                afficherBulle("⏳ " + Applications.nom(this, paquet) + " : plus que " + minutes + " min");
+                afficherBulle("⏳ " + Applications.nom(this, paquet) + " : plus que " + minutes + " min", 3000);
                 return;
             }
         }
     }
 
-    private void afficherBulle(String texte) {
+    private void afficherBulle(String texte, long duree) {
         WindowManager wm = getSystemService(WindowManager.class);
         TextView bulle = Ui.texte(this, texte, 15, Ui.TEXTE, true);
         bulle.setBackground(Ui.fond(this, 0xF01C1F24, 20));
@@ -529,7 +582,7 @@ public class BlocageAccessibilityService extends AccessibilityService {
                 } catch (IllegalArgumentException ignore) {
                     // déjà retirée
                 }
-            }, 3000);
+            }, duree);
         } catch (RuntimeException ignore) {
             // superposition refusée : pas de bulle
         }

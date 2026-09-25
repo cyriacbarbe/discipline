@@ -176,3 +176,23 @@ fait avec ET.
 - **Apparence** : fond (sombre, noir, bleu nuit, vert) teinté sur une image
   (`widget_fond`) avec opacité 0–100 %, trois tailles de texte, mode compact
   sur une ligne (`widget_compact.xml`, mêmes identifiants).
+
+## v1.5 — sessions, alerte nommée, veille
+
+- **Réactiver une limite la remet à zéro** : `Donnees.activer` note `activee`
+  dans l'état de la limite ; `Moteur.depuis` / `debutCompte` ne comptent rien
+  d'avant (temps, ouvertures, sessions, pauses, rallonges).
+- **Alerte qui nomme la limite** : « X est bloquée par « limite » : raison »,
+  en bulle 5 s (aussi quand l'action ouvre une autre appli) ; l'écran de
+  blocage le dit en orange.
+- **Sessions = pauses par-dessus les autres limites** : une condition
+  « Sessions » ne bloque jamais (ignorée dans le ET/OU). Quand une autre limite
+  bloque une appli qu'elle couvre et qu'il en reste, l'écran de blocage propose
+  « Lancer une session de N min » : c'est compté (`debuts`), et jusqu'à `fin`
+  (minutes d'horloge, pas d'usage) toutes les applis de la limite sont libres
+  (`Moteur.sessionEnCours`, son et image dans l'image compris). Compte à rebours
+  en notification + bulles de la limite ; à la fin, écran « Session terminée »
+  si une autre limite bloque, bulle sinon.
+- **Écran éteint ou verrouillé : rien ne compte** (`enUsage` dans le service).
+  Un événement de fenêtre écran éteint rouvrait le journal jusqu'au matin
+  (appli de sommeil comptée 7 h).
