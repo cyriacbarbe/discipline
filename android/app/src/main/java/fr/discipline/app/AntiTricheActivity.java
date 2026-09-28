@@ -37,6 +37,10 @@ public class AntiTricheActivity extends Ecran {
         carte.addView(Ui.petit(this, "Durcir une règle est toujours immédiat. Ces réglages ne freinent que "
                 + "les assouplissements : relâcher, désactiver ou supprimer une limite active, allonger la tolérance, "
                 + "ajouter un badge, importer un réglage, partir en vacances…"));
+        int nbGarants = Garant.garants(donnees).size();
+        Ui.ajouter(c, Ui.carte(this), 8).addView(Ui.lien(this, "Garants", nbGarants == 0 ? "aucun"
+                : nbGarants + (Garant.actifs(donnees) ? " · valident tout" : " · en pause"),
+                v -> startActivity(new Intent(this, GarantActivity.class))));
 
         LinearLayout reglages = Ui.ajouter(c, Ui.carte(this), 8);
         reglages.addView(Ui.lien(this, "Délai avant d’assouplir", delai == 0 ? "aucun" : Ui.duree(delai * 60_000L),
@@ -105,6 +109,10 @@ public class AntiTricheActivity extends Ecran {
     private void confiance(LinearLayout c) {
         Ui.ajouter(c, Ui.section(this, "Personne de confiance"), 16);
         LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
+        if (Garant.actifs(donnees)) {
+            carte.addView(Ui.petit(this, "Tes garants valident chaque assouplissement : les codes ne servent plus."));
+            return;
+        }
         if (donnees.confianceNom.isEmpty()) {
             carte.addView(Ui.petit(this, "Quelqu’un qui garde dix codes à usage unique. Quand l’anti-triche fait "
                     + "attendre, un de ses codes permet de passer tout de suite : il faut lui demander, et lui "

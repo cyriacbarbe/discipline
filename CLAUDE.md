@@ -64,3 +64,5 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   appuis, fond, opacité, taille, mode compact).
 - v1.5 : réactiver une limite la remet à zéro, alerte qui nomme la limite, sessions
   = pauses d’horloge par-dessus les autres limites, rien ne compte écran verrouillé.
+- v1.6 : garants qui valident chaque assouplissement par SMS + page web signée
+  (`Garant`, `site/public/g/`, Vercel `discipline-garant.vercel.app`).

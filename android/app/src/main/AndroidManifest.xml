@@ -75,6 +75,18 @@
         <activity android:name=".AntiTricheActivity" android:exported="false" />
         <activity android:name=".HistoriqueActivity" android:exported="false" />
         <activity android:name=".BilanActivity" android:exported="false" />
+        <!-- Exportée : le lien de réponse d’un garant (discipline://garant?r=…) l’ouvre. -->
+        <activity
+            android:name=".GarantActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="discipline" android:host="garant" />
+            </intent-filter>
+        </activity>
         <!-- Exportée : le lanceur l’ouvre pour régler un widget qu’on vient de poser. -->
         <activity
             android:name=".WidgetActivity"

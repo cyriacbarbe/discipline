@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Discipline — garant</title>
+<style>
+  :root {
+    --fond: #f6f5f2; --carte: #ffffff; --texte: #1c1b19; --doux: #6b6862; --trait: #e4e1da;
+    --vert: #1f7a4d; --vert-texte: #ffffff; --rouge: #a23b2c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fond: #151513; --carte: #201f1c; --texte: #eeece7; --doux: #a19d95; --trait: #34322d;
+      --vert: #3fae76; --vert-texte: #0d1f15; --rouge: #e07a6a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fond); color: var(--texte);
+    font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 480px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 0 0 8px; }
+  .sur { color: var(--doux); font-size: 14px; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 6px; }
+  .carte { background: var(--carte); border: 1px solid var(--trait); border-radius: 14px; padding: 18px; margin: 18px 0; }
+  .demande { font-size: 22px; font-weight: 600; line-height: 1.3; }
+  ul { padding-left: 20px; margin: 8px 0 0; }
+  li { margin: 6px 0; }
+  .doux { color: var(--doux); font-size: 15px; }
+  .bouton { display: block; width: 100%; text-align: center; border: 0; border-radius: 12px; padding: 16px;
+    font: 600 18px/1.2 inherit; font-family: inherit; text-decoration: none; cursor: pointer; margin-top: 12px; }
+  .oui { background: var(--vert); color: var(--vert-texte); }
+  .non { background: transparent; color: var(--rouge); border: 1px solid var(--trait); }
+  .neutre { background: transparent; color: var(--texte); border: 1px solid var(--trait); }
+  .cache { display: none; }
+</style>
+</head>
+<body>
+<main id="page"><p class="doux">Chargement…</p></main>
+<script>
+"use strict";
+const SITE = location.origin + "/g/";
+const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const page = document.getElementById("page");
+
+// ---- Outils --------------------------------------------------------------
+function b64(octets) {
+  let s = "";
+  new Uint8Array(octets).forEach(b => { s += String.fromCharCode(b); });
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function deB64(t) {
+  t = t.replace(/-/g, "+").replace(/_/g, "/");
+  while (t.length % 4) t += "=";
+  return Uint8Array.from(atob(t), c => c.charCodeAt(0));
+}
+function lireJson(t) { return JSON.parse(new TextDecoder().decode(deB64(t))); }
+function sms(numero, corps) { return "sms:" + numero + (iOS ? "&" : "?") + "body=" + encodeURIComponent(corps); }
+function esc(t) { const d = document.createElement("div"); d.textContent = t == null ? "" : String(t); return d.innerHTML; }
+
+// Les clés vivent dans ce navigateur (IndexedDB), privées et non exportables.
+function base() {
+  return new Promise((ok, ko) => {
+    const r = indexedDB.open("discipline-garant", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("cles", { keyPath: "g" });
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => ko(r.error);
+  });
+}
+async function magasin(mode, action) {
+  const db = await base();
+  return new Promise((ok, ko) => {
+    const r = action(db.transaction("cles", mode).objectStore("cles"));
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => ko(r.error);
+  });
+}
+const lireCle = g => magasin("readonly", s => s.get(g));
+const toutesCles = () => magasin("readonly", s => s.getAll());
+const ecrireCle = o => magasin("readwrite", s => s.put(o));
+
+function afficher(html) { page.innerHTML = html; window.scrollTo(0, 0); }
+function erreur(texte) {
+  afficher(`<p class="sur">Discipline · garant</p><h1>Oups</h1><div class="carte"><p>${esc(texte)}</p></div>`);
+}
+
+// ---- Invitation : devenir garant -----------------------------------------
+async function invitation(p) {
+  const n = esc(p.n);
+  const deja = await lireCle(p.g);
+  afficher(`
+    <p class="sur">Discipline · garant</p>
+    <h1>${n} te demande d’être son garant</h1>
+    <div class="carte">
+      <p>${n} utilise <b>Discipline</b>, une appli qui l’aide à se limiter sur son téléphone
+      (temps d’écran, applis bloquées, horaires…).</p>
+      <p>Être garant, c’est simple :</p>
+      <ul>
+        <li>Quand ${n} veut assouplir une de ses règles, tu reçois un SMS avec un lien.</li>
+        <li>Tu lis ce qui est demandé, et tu acceptes ou tu refuses.</li>
+        <li>Sans ton accord, rien ne s’assouplit. Durcir ses règles, ${n} le fait sans toi.</li>
+      </ul>
+      <p class="doux">Rien à installer, pas de compte. Une clé secrète est créée dans ce navigateur :
+      ouvre les prochains liens sur ce même téléphone.</p>
+    </div>
+    ${deja ? `<p class="doux">Tu es déjà garant de ${n} sur ce téléphone.</p>` : ""}
+    <button class="bouton oui" id="oui">${deja ? "Renvoyer ma confirmation" : "J’accepte d’être garant"}</button>
+  `);
+  document.getElementById("oui").onclick = async () => {
+    try {
+      let cle = deja;
+      if (!cle) {
+        const paire = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
+        const pub = b64(await crypto.subtle.exportKey("raw", paire.publicKey));
+        cle = { g: p.g, n: p.n, p: p.p, prive: paire.privateKey, pub, t: Date.now() };
+        await ecrireCle(cle);
+        if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+      }
+      const corps = `C’est d’accord, je suis ton garant. Appuie sur ce lien pour finir : ${SITE}#r=g.${p.g}.${cle.pub}`;
+      afficher(`
+        <p class="sur">Discipline · garant</p>
+        <h1>Dernière étape</h1>
+        <div class="carte"><p>Envoie ce SMS à ${n} : en appuyant sur son lien, ${n} t’enregistre comme garant.</p></div>
+        <a class="bouton oui" href="${esc(sms(p.p, corps))}">Envoyer le SMS à ${n}</a>
+        <p class="doux">Garde ce téléphone et ce navigateur pour ouvrir les demandes. Si un jour la page ne te
+        reconnaît plus, ${n} pourra t’envoyer une nouvelle invitation.</p>
+      `);
+    } catch (e) {
+      erreur("Ce navigateur n’a pas réussi à créer la clé (" + e.message + "). Essaie avec Safari ou Chrome à jour.");
+    }
+  };
+}
+
+// ---- Demande : accepter ou refuser -----------------------------------------
+async function demande(p) {
+  const n = esc(p.n);
+  const cle = await lireCle(p.g);
+  if (!cle) {
+    afficher(`
+      <p class="sur">Discipline · garant</p>
+      <h1>Ta clé de garant est introuvable</h1>
+      <div class="carte">
+        <p>${n} demande ton accord pour : <b>${esc(p.t)}</b>.</p>
+        <p>Mais ce navigateur n’a pas (ou plus) ta clé de garant de ${n}. Ouvre le lien dans le navigateur où tu avais
+        accepté. Sinon, ${n} peut t’envoyer une nouvelle invitation depuis Discipline (Garants → « Clé perdue »).</p>
+      </div>`);
+    return;
+  }
+  afficher(`
+    <p class="sur">Discipline · garant de ${n}</p>
+    <h1>${n} demande ton accord</h1>
+    <div class="carte"><p class="doux">Pour :</p><p class="demande">${esc(p.t)}</p></div>
+    <p class="doux">Rien ne presse : tu peux d’abord demander à ${n} pourquoi. Sans réponse, rien ne change.</p>
+    <button class="bouton oui" id="oui">J’accepte</button>
+    <button class="bouton non" id="non">Je refuse</button>
+  `);
+  document.getElementById("oui").onclick = async () => {
+    try {
+      const sig = b64(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, cle.prive,
+        new TextEncoder().encode(`ok.${p.g}.${p.d}`)));
+      const corps = `J’accepte : ${p.t}. Appuie sur ce lien pour l’appliquer : ${SITE}#r=a.${p.g}.${p.d}.${sig}`;
+      afficher(`
+        <p class="sur">Discipline · garant de ${n}</p>
+        <h1>Envoie ta réponse</h1>
+        <div class="carte"><p>Ton accord part par SMS. En appuyant sur son lien, ${n} l’applique.</p></div>
+        <a class="bouton oui" href="${esc(sms(cle.p, corps))}">Envoyer l’accord à ${n}</a>`);
+    } catch (e) {
+      erreur("La signature a échoué (" + e.message + ").");
+    }
+  };
+  document.getElementById("non").onclick = () => {
+    afficher(`
+      <p class="sur">Discipline · garant de ${n}</p>
+      <h1>Tu refuses</h1>
+      <div class="carte"><p>Rien ne change pour ${n}. Tu peux le lui dire par SMS, ou ne rien répondre.</p></div>
+      <a class="bouton neutre" href="${esc(sms(cle.p, `Je refuse : ${p.t}.`))}">Prévenir ${n}</a>`);
+  };
+}
+
+// ---- Réponse : ouverte sur le téléphone de celui qui a Discipline ------------
+function reponse(r) {
+  const intent = `intent://garant?r=${encodeURIComponent(r)}#Intent;scheme=discipline;package=fr.discipline.app;end`;
+  afficher(`
+    <p class="sur">Discipline</p>
+    <h1>Réponse du garant</h1>
+    <div class="carte"><p>${iOS ? "Ce lien s’ouvre sur le téléphone Android où Discipline est installée."
+      : "Appuie ci-dessous : Discipline vérifie la réponse et l’applique."}</p></div>
+    ${iOS ? "" : `<a class="bouton oui" href="${esc(intent)}">Ouvrir dans Discipline</a>`}
+    <p class="doux">Si rien ne s’ouvre : copie le SMS et colle-le dans Discipline, Anti-triche → Garants →
+    « Coller une réponse reçue ».</p>`);
+  if (!iOS) location.href = intent;
+}
+
+// ---- Accueil ----------------------------------------------------------------
+async function accueil() {
+  let cles = [];
+  try { cles = await toutesCles(); } catch (e) { /* navigation privée */ }
+  afficher(`
+    <p class="sur">Discipline</p>
+    <h1>Garant</h1>
+    <div class="carte">
+      ${cles.length ? `<p>Sur ce téléphone, tu es garant de : <b>${cles.map(c => esc(c.n)).join(", ")}</b>.</p>`
+        : `<p>Tu n’es garant de personne sur ce téléphone.</p>`}
+      <p class="doux">Les demandes arrivent par SMS, avec un lien vers cette page.</p>
+    </div>`);
+}
+
+// ---- Aiguillage -------------------------------------------------------------
+(async () => {
+  const h = location.hash.slice(1);
+  const i = h.indexOf("=");
+  const sorte = i < 0 ? "" : h.slice(0, i);
+  const valeur = i < 0 ? "" : h.slice(i + 1);
+  try {
+    if (!window.crypto || !crypto.subtle || !window.indexedDB) {
+      erreur("Ce navigateur est trop ancien (ou en navigation privée). Ouvre le lien dans Safari ou Chrome.");
+    } else if (sorte === "i") {
+      await invitation(lireJson(valeur));
+    } else if (sorte === "d") {
+      await demande(lireJson(valeur));
+    } else if (sorte === "r") {
+      reponse(decodeURIComponent(valeur));
+    } else {
+      await accueil();
+    }
+  } catch (e) {
+    erreur("Lien abîmé ou incomplet. Copie-le en entier depuis le SMS.");
+  }
+})();
+</script>
+</body>
+</html>

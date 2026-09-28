@@ -193,7 +193,10 @@ public abstract class Ecran extends Activity {
      */
     protected void garde(JSONObject changement, String texte, Runnable apres) {
         Runnable suite = () -> {
-            if (donnees.delaiAssouplissement > 0 && !donnees.confianceCodes.isEmpty()) {
+            if (Garant.actifs(donnees)) {
+                // le garant remplace le délai et les codes : sans son accord, rien ne s'assouplit
+                demanderGarant(changement, texte, apres);
+            } else if (donnees.delaiAssouplissement > 0 && !donnees.confianceCodes.isEmpty()) {
                 proposerConfiance(changement, texte, apres);
             } else {
                 finirGarde(changement, texte, apres, donnees.delaiAssouplissement > 0);
@@ -218,6 +221,35 @@ public abstract class Ecran extends Activity {
             apres.run();
         }
         rafraichir();
+    }
+
+    /**
+     * Envoie la demande à un garant ; le changement attend son accord (lien
+     * signé qu'il renvoie par SMS). Sans garant, appliqué tout de suite.
+     */
+    protected void demanderGarant(JSONObject changement, String texte, Runnable apres) {
+        java.util.List<JSONObject> garants = Garant.garants(donnees);
+        if (garants.isEmpty()) {
+            finirGarde(changement, texte, apres, false);
+            return;
+        }
+        JSONObject demande = Garant.nouvelleDemande(changement, texte);
+        String[] noms = new String[garants.size()];
+        for (int i = 0; i < noms.length; i++) {
+            noms[i] = "Écrire à " + garants.get(i).optString("nom");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Accord d’un garant pour " + texte)
+                .setItems(noms, (d, i) -> {
+                    Garant.demander(this, donnees, demande, garants.get(i));
+                    toast("Demande envoyée : appuie sur le lien de sa réponse pour l’appliquer.");
+                    if (apres != null) {
+                        apres.run();
+                    }
+                    rafraichir();
+                })
+                .setNegativeButton("Annuler", null)
+                .show();
     }
 
     /** Délai à attendre, ou un code de la personne de confiance pour passer tout de suite. */

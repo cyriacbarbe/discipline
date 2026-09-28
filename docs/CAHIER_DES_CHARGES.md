@@ -196,3 +196,35 @@ fait avec ET.
 - **Écran éteint ou verrouillé : rien ne compte** (`enUsage` dans le service).
   Un événement de fenêtre écran éteint rouvrait le journal jusqu'au matin
   (appli de sommeil comptée 7 h).
+
+## v1.6 — garants
+
+Des proches qui valident chaque assouplissement, par SMS, sans serveur ni
+compte. Code : `Garant.java` (état, liens, vérification), `GarantActivity`
+(Anti-triche → Garants), page `site/public/g/index.html` (Vercel).
+
+- **Règle** : tant qu'un garant est actif, tout ce qui passe par `Ecran.garde`
+  (donc tout assouplissement) demande son accord ; le délai et les codes de
+  confiance ne servent plus. Durcir reste libre. Plusieurs garants : un seul
+  oui suffit. Sans réponse, rien ne s'assouplit (demande oubliée après 48 h).
+- **Invitation** : SMS avec `…/g/#i=<base64 {g, n, p}>`. La page crée une clé
+  ECDSA P-256 **non exportable** (IndexedDB du navigateur du garant) et renvoie
+  par SMS `…/g/#r=g.<id>.<clé publique brute>`.
+- **Demande** : SMS avec `…/g/#d=<base64 {g, d, t, n, p}>` ; « J'accepte »
+  signe `ok.<garant>.<demande>` et renvoie `…/g/#r=a.<garant>.<demande>.<r‖s>`.
+  Sur Android, la page ouvre `discipline://garant?r=…` (`GarantActivity`),
+  qui vérifie (`SHA256withECDSA`, r‖s converti en DER) puis applique le
+  changement gardé dans la demande. Secours : coller le SMS dans l'appli.
+  Pas de lecture des SMS (marche aussi en RCS/iMessage, zéro permission).
+- **Protections** : le premier garant s'ajoute librement ; les suivants, le
+  retrait d'un garant et la pause demandent toujours l'accord d'un garant (même
+  en pause) — sinon s'ajouter soi-même comme garant ouvrirait tout. Une
+  nouvelle clé pour un garant existant (« Clé perdue ») n'entre en service
+  qu'après 72 h. Un import de réglages ne touche pas aux garants.
+- **Pause** (1 h à 1 semaine) : accordée par le garant ; pendant ce temps,
+  l'anti-triche redevient celui d'avant (délai, badge, codes).
+- **Limite connue** : Safari (iPhone) peut effacer la clé d'un site peu visité
+  (~7 jours d'usage sans visite). Le garant voit alors « clé introuvable » et
+  on lui renvoie une invitation (clé active 72 h plus tard).
+- Honnêteté restante : l'invitation du premier garant passe par ton téléphone,
+  tu pourrais y répondre toi-même. Le reste est infalsifiable sans sa clé.

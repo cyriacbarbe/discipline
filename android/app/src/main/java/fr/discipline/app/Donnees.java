@@ -173,6 +173,8 @@ final class Donnees {
     String confianceNom = "";
     String confianceNumero = "";
     final List<String> confianceCodes = new ArrayList<>();
+    /** Garants (voir Garant) : {moi, liste, invites, demandes, pause}. */
+    JSONObject garant = new JSONObject();
 
     /** null tant que l'appli n'a jamais relevé la liste des applis installées. */
     Set<String> applisConnues;
@@ -238,6 +240,7 @@ final class Donnees {
             // appelé pendant le parcours des changements en attente : ne pas y toucher
             JSONObject r = new JSONObject(o.toString());
             r.remove("enAttente");
+            r.remove("garant"); // un import ne change pas les garants
             lire(r);
         } catch (Exception e) {
             // import partiel : on garde ce qui a pu être lu
@@ -308,6 +311,9 @@ final class Donnees {
         if (cf != null) {
             lireConfiance(cf);
         }
+        if (o.optJSONObject("garant") != null) {
+            garant = o.getJSONObject("garant");
+        }
         JSONArray connues = o.optJSONArray("connues");
         if (connues != null) {
             applisConnues = new HashSet<>();
@@ -343,7 +349,7 @@ final class Donnees {
     /** Le réglage seul, sans l'état du téléphone : ce qu'on exporte. */
     synchronized JSONObject exporter() {
         JSONObject o = json();
-        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances", "motifs", "auto", "confiance"}) {
+        for (String cle : new String[]{"etats", "compteurs", "enAttente", "connues", "vacances", "motifs", "auto", "confiance", "garant"}) {
             o.remove(cle);
         }
         return o;
@@ -380,7 +386,8 @@ final class Donnees {
                     .put("alerte", alerteAccessibilite).put("strict", modeStrict).put("motifs", new JSONArray(motifs)).put("enAttente", new JSONArray(enAttente))
                     .put("etats", etats).put("compteurs", compteurs)
                     .put("confiance", new JSONObject().put("nom", confianceNom).put("numero", confianceNumero)
-                            .put("codes", new JSONArray(confianceCodes)));
+                            .put("codes", new JSONArray(confianceCodes)))
+                    .put("garant", garant);
             if (applisConnues != null) {
                 o.put("connues", new JSONArray(applisConnues));
             }
@@ -670,6 +677,25 @@ final class Donnees {
                 break;
             case "confiance":
                 lireConfiance(ch);
+                break;
+            case "garant-inviter":
+                try {
+                    Garant.ajouter(this, "invites", new JSONObject().put("id", id).put("nom", ch.optString("nom"))
+                            .put("numero", ch.optString("numero")));
+                } catch (Exception ignore) {
+                    // clés non nulles
+                }
+                break;
+            case "garant-retirer":
+                Garant.retirer(this, "liste", id);
+                Garant.retirer(this, "invites", id);
+                break;
+            case "garant-pause":
+                try {
+                    garant.put("pause", Horloge.maintenant() + ch.optLong("minutes") * 60_000L);
+                } catch (Exception ignore) {
+                    // clé non nulle
+                }
                 break;
             case "antitriche":
                 delaiAssouplissement = ch.optInt("delai");
