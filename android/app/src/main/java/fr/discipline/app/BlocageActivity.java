@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -34,6 +35,8 @@ import java.util.Set;
 public class BlocageActivity extends Ecran {
     static final String EXTRA_PAQUET = "paquet";
     static final String EXTRA_LIMITE = "limite";
+    /** Page d'accueil avant d'ouvrir une appli limitée, pas un blocage. */
+    static final String EXTRA_ACCUEIL = "accueil";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable minuterie;
@@ -93,6 +96,10 @@ public class BlocageActivity extends Ecran {
         LinearLayout c = page("", false);
         c.setGravity(Gravity.CENTER_HORIZONTAL);
         c.setMinimumHeight(getResources().getDisplayMetrics().heightPixels - Ui.dp(this, 80));
+        if (getIntent().getBooleanExtra(EXTRA_ACCUEIL, false) && !r.bloque) {
+            accueil(c, moteur, appli, maintenant);
+            return;
+        }
 
         if (limite.image != null) {
             ImageView image = new ImageView(this);
@@ -184,8 +191,9 @@ public class BlocageActivity extends Ecran {
                 if (n == 0) {
                     return "Tu as choisi de ne pas l’ouvrir " + limite.quand() + ".";
                 }
-                return "Tu as passé " + (jaugeDeLaCause ? Ui.duree(r.jaugeFait) : Condition.minutes(n)) + " sur "
-                        + Condition.minutes(n) + " autorisées " + periode + ".";
+                return "Tu as déjà utilisé " + (jaugeDeLaCause ? Ui.duree(r.jaugeFait) : Condition.minutes(n))
+                        + " de ta limite « " + limite.nomAffiche(donnees) + " » (" + Condition.minutes(n) + " "
+                        + periode + ").";
             case Condition.DUREE_SESSION:
                 return "Tu as atteint tes " + Condition.minutes(n) + " d’affilée.";
             case Condition.PAUSE:
@@ -209,66 +217,82 @@ public class BlocageActivity extends Ecran {
         boolean semaine = cause != null && cause.aPeriode() && cause.periode.unite == Periode.SEMAINE;
         long depuis = cause != null && cause.aPeriode() ? moteur.debutCompte(limite, cause, maintenant)
                 : Math.max(new Periode().debut(maintenant), moteur.depuis(limite, Periode.JOUR));
-        List<long[]> sessions = Journal.get(this).sessions(donnees.cibles(limite), depuis, maintenant,
-                donnees.toleranceSecondes * 1000L);
-        LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
-        String periode = cause != null && cause.aPeriode() ? cause.periode.enCours() : "aujourd’hui";
-        carte.addView(Ui.section(this, "Tes sessions " + periode));
-        if (sessions.isEmpty()) {
-            carte.addView(Ui.petit(this, "Aucune."));
-            return;
-        }
-        SimpleDateFormat f = new SimpleDateFormat(semaine ? "EEE HH:mm" : "HH:mm", Locale.FRANCE);
-        SimpleDateFormat h = new SimpleDateFormat("HH:mm", Locale.FRANCE);
-        long total = 0;
-        for (long[] s : sessions) {
-            total += s[1] - s[0];
-        }
-        // Les sessions accordées sont décomptées : elles ne font pas partie du temps total.
-        long enSession = moteur.tempsEnSession(limite, donnees.cibles(limite), depuis, maintenant);
-        total = Math.max(0, total - enSession);
-        List<long[]> accordees = new ArrayList<>();
-        for (Limite autre : donnees.limites) {
-            accordees.addAll(moteur.fenetresSession(autre));
-        }
-        int debut = Math.max(0, sessions.size() - 8);
-        if (debut > 0) {
-            carte.addView(Ui.petit(this, "… et " + debut + " plus tôt"));
-        }
-        for (int i = debut; i < sessions.size(); i++) {
-            long[] s = sessions.get(i);
-            LinearLayout ligne = Ui.ajouter(carte, Ui.rangee(this), 4);
-            boolean accordee = false;
-            for (long[] a : accordees) {
-                accordee |= s[0] >= a[0] && s[0] < a[1];
-            }
-            Ui.etirer(ligne, Ui.corps(this, (i + 1) + ".  " + f.format(new Date(s[0])) + " → " + h.format(new Date(s[1]))
-                    + (accordee ? "  (session)" : "")));
-            ligne.addView(Ui.petit(this, Ui.duree(s[1] - s[0])));
-        }
-        Ui.ajouter(carte, Ui.petit(this, sessions.size() + " session" + (sessions.size() > 1 ? "s" : "")
-                + ", " + Ui.duree(total) + " en tout"), 8);
-        if (enSession >= 1000) {
-            Ui.ajouter(carte, Ui.petit(this, "Tu as aussi passé " + Ui.duree(enSession)
-                    + " pendant des sessions accordées, décomptées du total."), 4);
-        }
-
-        // Une limite partagée compte toutes ses applis ensemble : dire qui a pris le temps.
+        Journal journal = Journal.get(this);
         Set<String> cibles = donnees.cibles(limite);
-        if (cibles.size() > 1) {
-            Map<String, Long> parAppli = new HashMap<>();
-            for (Map.Entry<String, Long> e : Journal.get(this).tempsParAppli(depuis, maintenant).entrySet()) {
-                if (cibles.contains(e.getKey()) && e.getValue() >= 1000) {
-                    parAppli.put(e.getKey(), e.getValue());
+        String periode = cause != null && cause.aPeriode() ? cause.periode.enCours() : "aujourd’hui";
+
+        // Temps par appli hors sessions accordées : les sessions sont à part.
+        Map<String, Long> parAppli = new HashMap<>();
+        long total = 0;
+        for (String p : cibles) {
+            Set<String> seule = Collections.singleton(p);
+            long t = journal.temps(seule, depuis, maintenant) - moteur.tempsEnSession(limite, seule, depuis, maintenant);
+            if (t >= 1000) {
+                parAppli.put(p, t);
+                total += t;
+            }
+        }
+        if (cause != null && cause.type == Condition.TEMPS && r.jauge == cause) {
+            total = r.jaugeFait;
+        }
+        long celleCi = parAppli.containsKey(paquet) ? parAppli.get(paquet) : 0;
+        String appli = Applications.nom(this, paquet);
+
+        LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
+        carte.addView(Ui.section(this, "Ton temps " + periode));
+        carte.addView(Ui.corps(this, "dont " + Ui.duree(celleCi) + " sur " + appli
+                + (cibles.size() > 1 ? " et " + Ui.duree(Math.max(0, total - celleCi)) + " sur les autres applis" : "") + "."));
+        TextView voir = Ui.ajouter(carte, Ui.petit(this, "Voir le détail ▾"), 8);
+
+        // Le détail se déplie au toucher : temps par appli, puis chaque passage.
+        LinearLayout detail = Ui.ajouter(carte, new LinearLayout(this), 8);
+        detail.setOrientation(LinearLayout.VERTICAL);
+        detail.setVisibility(View.GONE);
+        List<Map.Entry<String, Long>> tri = new ArrayList<>(parAppli.entrySet());
+        Collections.sort(tri, (a, b) -> Long.compare(b.getValue(), a.getValue()));
+        for (Map.Entry<String, Long> e : tri) {
+            LinearLayout ligne = Ui.ajouter(detail, Ui.rangee(this), 4);
+            Ui.etirer(ligne, Ui.corps(this, Applications.nom(this, e.getKey())));
+            ligne.addView(Ui.petit(this, Ui.duree(e.getValue())));
+        }
+        List<long[]> passages = journal.sessions(cibles, depuis, maintenant, donnees.toleranceSecondes * 1000L);
+        if (!passages.isEmpty()) {
+            Ui.ajouter(detail, Ui.section(this, "Tes passages " + periode), 12);
+            List<long[]> accordees = new ArrayList<>();
+            for (Limite autre : donnees.limites) {
+                accordees.addAll(moteur.fenetresSession(autre));
+            }
+            SimpleDateFormat f = new SimpleDateFormat(semaine ? "EEE HH:mm" : "HH:mm", Locale.FRANCE);
+            SimpleDateFormat h = new SimpleDateFormat("HH:mm", Locale.FRANCE);
+            for (long[] s : passages) {
+                boolean enSession = false;
+                for (long[] a : accordees) {
+                    enSession |= s[0] < a[1] && s[1] > a[0];
                 }
+                LinearLayout ligne = Ui.ajouter(detail, Ui.rangee(this), 4);
+                Ui.etirer(ligne, Ui.corps(this, f.format(new Date(s[0])) + " → " + h.format(new Date(s[1]))
+                        + (enSession ? "  (pendant une session)" : "")));
+                ligne.addView(Ui.petit(this, Ui.duree(s[1] - s[0])));
             }
-            List<Map.Entry<String, Long>> tri = new ArrayList<>(parAppli.entrySet());
-            Collections.sort(tri, (a, b) -> Long.compare(b.getValue(), a.getValue()));
-            StringBuilder qui = new StringBuilder("Réparti entre :");
-            for (Map.Entry<String, Long> e : tri) {
-                qui.append("\n• ").append(Applications.nom(this, e.getKey())).append(" : ").append(Ui.duree(e.getValue()));
+        }
+        carte.setOnClickListener(v -> {
+            boolean ouvert = detail.getVisibility() == View.VISIBLE;
+            detail.setVisibility(ouvert ? View.GONE : View.VISIBLE);
+            voir.setText(ouvert ? "Voir le détail ▾" : "Masquer le détail ▴");
+        });
+
+        // Petite case : les sessions ne sont pas dans ce compte.
+        boolean couverte = false;
+        for (Limite autre : donnees.limites) {
+            if (Moteur.condSessions(autre) != null && !Collections.disjoint(cibles, donnees.cibles(autre))) {
+                couverte = true;
             }
-            Ui.ajouter(carte, Ui.petit(this, qui.toString()), 8);
+        }
+        if (couverte) {
+            long enSession = moteur.tempsEnSession(limite, cibles, depuis, maintenant);
+            LinearLayout note = Ui.ajouter(c, Ui.carte(this), 8);
+            note.addView(Ui.petit(this, "Ne sont pas inclus les temps passés en sessions"
+                    + (enSession >= 1000 ? " (" + Ui.duree(enSession) + " " + periode + ")" : "") + "."));
         }
     }
 
@@ -381,6 +405,43 @@ public class BlocageActivity extends Ecran {
         minuterie.run();
     }
 
+    /**
+     * À chaque nouvelle ouverture d'une appli limitée : le temps déjà pris, ce qui reste,
+     * et le choix d'ouvrir (ça compte), de lancer une session ou de fermer. Le temps passé ici ne compte pas.
+     */
+    private void accueil(LinearLayout c, Moteur moteur, String appli, long maintenant) {
+        TextView titre = Ui.ajouter(c, Ui.texte(this, appli, 28, Ui.TEXTE, true), 32);
+        titre.setGravity(Gravity.CENTER);
+        Ui.ajouter(c, Ui.texte(this, "Cette appli est dans une limite : si tu l’ouvres, le temps passé comptera.",
+                17, Ui.TEXTE2, false), 12).setGravity(Gravity.CENTER);
+        for (Limite l : moteur.limitesPour(paquet, maintenant)) {
+            if (Moteur.condSessions(l) != null) {
+                continue;
+            }
+            Moteur.Resultat res = moteur.evaluer(l, maintenant);
+            LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 16);
+            carte.addView(Ui.section(this, l.nomAffiche(donnees)));
+            if (res.jauge == null || res.jaugeMax <= 0) {
+                carte.addView(Ui.petit(this, l.phrase()));
+                continue;
+            }
+            float part = (float) res.jaugeFait / res.jaugeMax;
+            Ui.ajouter(carte, Ui.jauge(this, part, part >= 0.8f ? Ui.ORANGE : Ui.VERT), 8);
+            boolean temps = res.jauge.type == Condition.TEMPS;
+            long reste = Math.max(0, res.jaugeMax - res.jaugeFait);
+            String unite = res.jauge.type == Condition.OUVERTURES ? " ouverture" + (reste > 1 ? "s" : "") : "";
+            Ui.ajouter(carte, Ui.corps(this, (temps ? Ui.duree(res.jaugeFait) + " pris sur " + Ui.duree(res.jaugeMax)
+                    : res.jaugeFait + " sur " + res.jaugeMax) + " " + res.jauge.periode.enCours()
+                    + " · il reste " + (temps ? Ui.duree(reste) : reste + unite)), 6);
+        }
+        Ui.ajouter(c, Ui.boutonPlein(this, "Ouvrir (compte dans la limite)"), 24).setOnClickListener(v -> {
+            BlocageAccessibilityService.laisserPasser(paquet);
+            ouvrirAppli();
+        });
+        session(c, moteur, maintenant);
+        Ui.ajouter(c, Ui.boutonDiscret(this, "Non, je ferme"), 24).setOnClickListener(v -> fermer());
+    }
+
     /** Une limite de sessions couvre l'appli : l'ouvrir quand même en consomme une, à l'horloge. */
     private void session(LinearLayout c, Moteur moteur, long maintenant) {
         Limite s = moteur.sessionPossible(paquet, maintenant);
@@ -394,7 +455,8 @@ public class BlocageActivity extends Ecran {
         carte.addView(Ui.corps(this, "Si tu veux utiliser cette appli, ça te comptera comme une session : "
                 + Condition.minutes(cond.valeur2) + " à l’horloge, pendant lesquelles toutes ses applis sont libres. "
                 + "Encore " + restantes + " session" + (restantes > 1 ? "s" : "") + " " + cond.periode.enCours() + "."));
-        Ui.ajouter(carte, Ui.boutonPlein(this, "Lancer une session de " + Condition.minutes(cond.valeur2)), 12)
+        Ui.ajouter(carte, Ui.boutonPlein(this, "Lancer une session « " + s.nomAffiche(donnees) + " » ("
+                        + Condition.minutes(cond.valeur2) + ")"), 12)
                 .setOnClickListener(v -> {
                     long debut = Horloge.maintenant();
                     long fin = moteur.lancerSession(s, debut);

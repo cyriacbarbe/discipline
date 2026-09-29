@@ -69,3 +69,4 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
 - v1.7 : fin de session sans retours en boucle (Reels), bulle 30 s avant la fin.
 - v1.8 : le temps passé pendant une session accordée est décompté du total (quota, écran de blocage, avec ligne à part et répartition par appli).
 - v1.9 : le décompte des sessions vient de toutes les règles « Sessions » (ex. Toilettes) qui libèrent les mêmes applis, pas seulement de la règle évaluée.
+- v1.10 : page d’accueil à chaque ouverture d’une appli limitée (temps pris, reste, Ouvrir / session / fermer, sans compter), écran de blocage « dont X sur l’appli et Y sur les autres » hors sessions, détail dépliable « Tes passages ».

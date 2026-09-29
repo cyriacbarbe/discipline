@@ -25,6 +25,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
@@ -62,6 +63,14 @@ public class BlocageAccessibilityService extends AccessibilityService {
     private boolean ecranAllume = true;
     private long dernierBlocage;
     private String dernierBloque;
+    /** Laissez-passer posé par « Ouvrir » sur la page d'accueil : l'appli et quand. */
+    private static String passeCle;
+    private static long passeA;
+
+    static void laisserPasser(String cle) {
+        passeCle = cle;
+        passeA = Horloge.maintenant();
+    }
     private long dernierEnregistrement;
     private long finAnnoncee;
 
@@ -276,7 +285,11 @@ public class BlocageAccessibilityService extends AccessibilityService {
             return;
         }
         long maintenant = Horloge.maintenant();
-        if (paquet.equals(dernierBloque) && maintenant - dernierBlocage < 1500) {
+        // « Ouvrir » vient d'être choisi sur la page d'accueil : cette ouverture-là passe.
+        boolean passe = changement && paquet.equals(passeCle) && maintenant - passeA < 15_000L;
+        if (passe) {
+            passeCle = null;
+        } else if (paquet.equals(dernierBloque) && maintenant - dernierBlocage < 1500) {
             return;
         }
         // Une session en cours : toutes les applis de sa limite sont libres jusqu'à la fin, à l'horloge.
@@ -293,17 +306,41 @@ public class BlocageAccessibilityService extends AccessibilityService {
         List<Limite> limites = moteur.limitesPour(paquet, maintenant);
         Limite bloquante = null;
         Moteur.Resultat resultatBloquant = null;
+        List<Moteur.Resultat> resultats = new ArrayList<>();
+        Limite aAccueillir = null;
         for (Limite l : limites) {
             Moteur.Resultat r = moteur.evaluer(l, maintenant);
-            // Une friction ou un badge à passer n'est pas un refus : l'ouverture se comptera si elle aboutit.
-            boolean aPasser = r.cause != null && (r.cause.type == Condition.FRICTION || r.cause.type == Condition.NFC);
-            if (changement && r.ouverture && !aPasser) {
-                donnees.compter(l.id, r.bloque ? Donnees.BLOQUEES : Donnees.AUTORISEES);
-            }
+            resultats.add(r);
             if (r.bloque && bloquante == null) {
                 bloquante = l;
                 resultatBloquant = r;
-            } else if (!r.bloque) {
+            }
+            if (changement && r.ouverture && !passe && aAccueillir == null && Moteur.condSessions(l) == null) {
+                aAccueillir = l;
+            }
+        }
+        // Nouvelle ouverture d'une appli limitée non bloquée : la page d'accueil d'abord, qui ne compte pas.
+        if (bloquante == null && aAccueillir != null) {
+            journal.marquerBloque();
+            dernierBloque = paquet;
+            dernierBlocage = maintenant;
+            Intent accueil = new Intent(this, BlocageActivity.class);
+            accueil.putExtra(BlocageActivity.EXTRA_PAQUET, paquet);
+            accueil.putExtra(BlocageActivity.EXTRA_LIMITE, aAccueillir.id);
+            accueil.putExtra(BlocageActivity.EXTRA_ACCUEIL, true);
+            accueil.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(accueil);
+            return;
+        }
+        for (int i = 0; i < limites.size(); i++) {
+            Limite l = limites.get(i);
+            Moteur.Resultat r = resultats.get(i);
+            // Une friction ou un badge à passer n'est pas un refus : l'ouverture se comptera si elle aboutit.
+            boolean aPasser = r.cause != null && (r.cause.type == Condition.FRICTION || r.cause.type == Condition.NFC);
+            if (changement && (r.ouverture || passe) && !aPasser) {
+                donnees.compter(l.id, r.bloque ? Donnees.BLOQUEES : Donnees.AUTORISEES);
+            }
+            if (!r.bloque) {
                 bulles(l, paquet, r.restant);
             }
         }
