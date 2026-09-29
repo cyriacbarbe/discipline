@@ -68,7 +68,8 @@ final class Moteur {
             r.ouverture = courante[0] == j.debutEnCours();
         }
         long debutJour = d.debutJournee(maintenant);
-        r.tempsDuJour = j.temps(cibles, debutJour, maintenant);
+        r.tempsDuJour = Math.max(0, j.temps(cibles, debutJour, maintenant)
+                - tempsEnSession(l, cibles, debutJour, maintenant));
         r.ouverturesDuJour = compterDepuis(sessions, debutJour);
 
         if (l.conditions.isEmpty()) {
@@ -212,14 +213,44 @@ final class Moteur {
 
     /** Temps sur les cibles depuis {@code debut}, seulement dans les plages si la limite le demande. */
     private long tempsCompte(Limite l, Set<String> cibles, long debut, long maintenant) {
-        if (!l.dansPlage) {
-            return j.temps(cibles, debut, maintenant);
-        }
         long total = 0;
-        for (long[] f : l.fenetres(debut, maintenant)) {
-            total += j.temps(cibles, f[0], f[1]);
+        if (!l.dansPlage) {
+            total = j.temps(cibles, debut, maintenant);
+        } else {
+            for (long[] f : l.fenetres(debut, maintenant)) {
+                total += j.temps(cibles, f[0], f[1]);
+            }
+        }
+        // Le temps passé pendant une session accordée est à part : il ne compte pas dans le quota.
+        return Math.max(0, total - tempsEnSession(l, cibles, debut, maintenant));
+    }
+
+    /** Temps passé sur les cibles pendant des sessions accordées par cette limite, depuis {@code debut}. */
+    long tempsEnSession(Limite l, Set<String> cibles, long debut, long maintenant) {
+        long total = 0;
+        for (long[] s : fenetresSession(l)) {
+            long a = Math.max(debut, s[0]);
+            long b = Math.min(maintenant, s[1]);
+            if (b > a) {
+                total += j.temps(cibles, a, b);
+            }
         }
         return total;
+    }
+
+    /** Sessions accordées par cette limite : {début, fin}, chacune coupée au début de la suivante. */
+    List<long[]> fenetresSession(Limite l) {
+        List<long[]> fenetres = new ArrayList<>();
+        Condition c = condSessions(l);
+        JSONArray debuts = c == null ? null : d.etat(c.id).optJSONArray("debuts");
+        for (int i = 0; debuts != null && i < debuts.length(); i++) {
+            long fin = debuts.optLong(i) + c.valeur2 * 60_000L;
+            if (i + 1 < debuts.length()) {
+                fin = Math.min(fin, debuts.optLong(i + 1));
+            }
+            fenetres.add(new long[]{debuts.optLong(i), fin});
+        }
+        return fenetres;
     }
 
     private static int compterDepuis(Limite l, List<long[]> sessions, long debut) {

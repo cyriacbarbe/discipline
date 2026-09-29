@@ -17,10 +17,15 @@ import android.widget.TextView;
 
 import java.text.Normalizer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * Écran montré quand une limite est atteinte : image, message, « de nouveau
@@ -219,6 +224,10 @@ public class BlocageActivity extends Ecran {
         for (long[] s : sessions) {
             total += s[1] - s[0];
         }
+        // Les sessions accordées sont décomptées : elles ne font pas partie du temps total.
+        long enSession = moteur.tempsEnSession(limite, donnees.cibles(limite), depuis, maintenant);
+        total = Math.max(0, total - enSession);
+        List<long[]> accordees = moteur.fenetresSession(limite);
         int debut = Math.max(0, sessions.size() - 8);
         if (debut > 0) {
             carte.addView(Ui.petit(this, "… et " + debut + " plus tôt"));
@@ -226,11 +235,38 @@ public class BlocageActivity extends Ecran {
         for (int i = debut; i < sessions.size(); i++) {
             long[] s = sessions.get(i);
             LinearLayout ligne = Ui.ajouter(carte, Ui.rangee(this), 4);
-            Ui.etirer(ligne, Ui.corps(this, (i + 1) + ".  " + f.format(new Date(s[0])) + " → " + h.format(new Date(s[1]))));
+            boolean accordee = false;
+            for (long[] a : accordees) {
+                accordee |= s[0] >= a[0] && s[0] < a[1];
+            }
+            Ui.etirer(ligne, Ui.corps(this, (i + 1) + ".  " + f.format(new Date(s[0])) + " → " + h.format(new Date(s[1]))
+                    + (accordee ? "  (session)" : "")));
             ligne.addView(Ui.petit(this, Ui.duree(s[1] - s[0])));
         }
         Ui.ajouter(carte, Ui.petit(this, sessions.size() + " session" + (sessions.size() > 1 ? "s" : "")
                 + ", " + Ui.duree(total) + " en tout"), 8);
+        if (enSession >= 1000) {
+            Ui.ajouter(carte, Ui.petit(this, "Tu as aussi passé " + Ui.duree(enSession)
+                    + " pendant des sessions accordées, décomptées du total."), 4);
+        }
+
+        // Une limite partagée compte toutes ses applis ensemble : dire qui a pris le temps.
+        Set<String> cibles = donnees.cibles(limite);
+        if (cibles.size() > 1) {
+            Map<String, Long> parAppli = new HashMap<>();
+            for (Map.Entry<String, Long> e : Journal.get(this).tempsParAppli(depuis, maintenant).entrySet()) {
+                if (cibles.contains(e.getKey()) && e.getValue() >= 1000) {
+                    parAppli.put(e.getKey(), e.getValue());
+                }
+            }
+            List<Map.Entry<String, Long>> tri = new ArrayList<>(parAppli.entrySet());
+            Collections.sort(tri, (a, b) -> Long.compare(b.getValue(), a.getValue()));
+            StringBuilder qui = new StringBuilder("Réparti entre :");
+            for (Map.Entry<String, Long> e : tri) {
+                qui.append("\n• ").append(Applications.nom(this, e.getKey())).append(" : ").append(Ui.duree(e.getValue()));
+            }
+            Ui.ajouter(carte, Ui.petit(this, qui.toString()), 8);
+        }
     }
 
     private String message(Moteur.Resultat r, String appli, long maintenant) {
