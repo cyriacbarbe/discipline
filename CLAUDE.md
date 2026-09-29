@@ -66,3 +66,4 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   = pauses d’horloge par-dessus les autres limites, rien ne compte écran verrouillé.
 - v1.6 : garants qui valident chaque assouplissement par SMS + page web signée
   (`Garant`, `site/public/g/`, Vercel `discipline-garant.vercel.app`).
+- v1.7 : fin de session sans retours en boucle (Reels), bulle 30 s avant la fin.
