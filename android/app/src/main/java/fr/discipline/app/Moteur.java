@@ -6,6 +6,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -228,11 +229,22 @@ final class Moteur {
     /** Temps passé sur les cibles pendant des sessions accordées par cette limite, depuis {@code debut}. */
     long tempsEnSession(Limite l, Set<String> cibles, long debut, long maintenant) {
         long total = 0;
-        for (long[] s : fenetresSession(l)) {
-            long a = Math.max(debut, s[0]);
-            long b = Math.min(maintenant, s[1]);
-            if (b > a) {
-                total += j.temps(cibles, a, b);
+        // Une session vient d'une règle « Sessions » (ex. Toilettes) qui libère ses propres applis.
+        for (Limite autre : d.limites) {
+            if (condSessions(autre) == null) {
+                continue;
+            }
+            Set<String> communes = new HashSet<>(cibles);
+            communes.retainAll(d.cibles(autre));
+            if (communes.isEmpty()) {
+                continue;
+            }
+            for (long[] s : fenetresSession(autre)) {
+                long a = Math.max(debut, s[0]);
+                long b = Math.min(maintenant, s[1]);
+                if (b > a) {
+                    total += j.temps(communes, a, b);
+                }
             }
         }
         return total;

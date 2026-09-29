@@ -227,7 +227,10 @@ public class BlocageActivity extends Ecran {
         // Les sessions accordées sont décomptées : elles ne font pas partie du temps total.
         long enSession = moteur.tempsEnSession(limite, donnees.cibles(limite), depuis, maintenant);
         total = Math.max(0, total - enSession);
-        List<long[]> accordees = moteur.fenetresSession(limite);
+        List<long[]> accordees = new ArrayList<>();
+        for (Limite autre : donnees.limites) {
+            accordees.addAll(moteur.fenetresSession(autre));
+        }
         int debut = Math.max(0, sessions.size() - 8);
         if (debut > 0) {
             carte.addView(Ui.petit(this, "… et " + debut + " plus tôt"));
