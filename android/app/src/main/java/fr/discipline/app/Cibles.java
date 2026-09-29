@@ -2,6 +2,7 @@ package fr.discipline.app;
 
 import java.util.AbstractSet;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -60,6 +61,33 @@ final class Cibles extends AbstractSet<String> {
             return !libres.contains(base) && !paquets.contains(p) && !paquets.contains(base);
         }
         return paquets.contains(p) || paquets.contains(base);
+    }
+
+    /**
+     * Ce qui fait partie des deux ensembles, parties d'appli et sites compris
+     * (une copie en HashSet les perdrait : « paquet#reels » n'y serait plus).
+     */
+    static Set<String> communes(Set<String> a, Set<String> b) {
+        return new AbstractSet<String>() {
+            @Override
+            public boolean contains(Object o) {
+                return a.contains(o) && b.contains(o);
+            }
+
+            @Override
+            public Iterator<String> iterator() {
+                Set<String> nommes = new HashSet<>(a);
+                nommes.retainAll(b);
+                return nommes.iterator();
+            }
+
+            @Override
+            public int size() {
+                Set<String> nommes = new HashSet<>(a);
+                nommes.retainAll(b);
+                return nommes.size();
+            }
+        };
     }
 
     @Override

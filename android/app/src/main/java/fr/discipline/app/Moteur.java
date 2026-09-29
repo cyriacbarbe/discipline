@@ -234,11 +234,7 @@ final class Moteur {
             if (condSessions(autre) == null) {
                 continue;
             }
-            Set<String> communes = new HashSet<>(cibles);
-            communes.retainAll(d.cibles(autre));
-            if (communes.isEmpty()) {
-                continue;
-            }
+            Set<String> communes = Cibles.communes(cibles, d.cibles(autre));
             for (long[] s : fenetresSession(autre)) {
                 long a = Math.max(debut, s[0]);
                 long b = Math.min(maintenant, s[1]);

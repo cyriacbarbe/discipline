@@ -222,21 +222,27 @@ public class BlocageActivity extends Ecran {
         String periode = cause != null && cause.aPeriode() ? cause.periode.enCours() : "aujourd’hui";
 
         // Temps par appli hors sessions accordées : les sessions sont à part.
+        // Chaque clé du journal (« paquet#reels », « site:… » compris) est rangée sous son appli.
+        Set<String> cles = new java.util.HashSet<>();
+        for (Journal.Intervalle i : journal.entre(cibles, depuis, maintenant)) {
+            cles.add(i.paquet);
+        }
         Map<String, Long> parAppli = new HashMap<>();
         long total = 0;
-        for (String p : cibles) {
-            Set<String> seule = Collections.singleton(p);
+        for (String cle : cles) {
+            Set<String> seule = Collections.singleton(cle);
             long t = journal.temps(seule, depuis, maintenant) - moteur.tempsEnSession(limite, seule, depuis, maintenant);
-            if (t >= 1000) {
-                parAppli.put(p, t);
+            if (t > 0) {
+                parAppli.merge(appliDe(cle), t, Long::sum);
                 total += t;
             }
         }
+        parAppli.values().removeIf(t -> t < 1000);
         if (cause != null && cause.type == Condition.TEMPS && r.jauge == cause) {
             total = r.jaugeFait;
         }
-        long celleCi = parAppli.containsKey(paquet) ? parAppli.get(paquet) : 0;
-        String appli = Applications.nom(this, paquet);
+        long celleCi = parAppli.containsKey(appliDe(paquet)) ? parAppli.get(appliDe(paquet)) : 0;
+        String appli = Applications.nom(this, appliDe(paquet));
 
         LinearLayout carte = Ui.ajouter(c, Ui.carte(this), 8);
         carte.addView(Ui.section(this, "Ton temps " + periode));
@@ -403,6 +409,15 @@ public class BlocageActivity extends Ecran {
             }
         };
         minuterie.run();
+    }
+
+    /** « paquet#reels » → paquet ; « site:facebook.com » → l'appli Facebook si elle est connue. */
+    private static String appliDe(String cle) {
+        if (cle.startsWith("site:")) {
+            String appli = Sites.paquet(Cibles.base(cle).substring(5));
+            return appli != null ? appli : Cibles.base(cle);
+        }
+        return Cibles.base(cle);
     }
 
     /**
