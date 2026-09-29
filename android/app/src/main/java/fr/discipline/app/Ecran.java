@@ -234,22 +234,43 @@ public abstract class Ecran extends Activity {
             return;
         }
         JSONObject demande = Garant.nouvelleDemande(changement, texte);
-        String[] noms = new String[garants.size()];
-        for (int i = 0; i < noms.length; i++) {
-            noms[i] = "Écrire à " + garants.get(i).optString("nom");
+        String qui = garants.size() == 1 ? garants.get(0).optString("nom") : "un de tes garants";
+
+        LinearLayout cadre = Ui.colonne(this);
+        cadre.setBackground(Ui.fond(this, Ui.CARTE, 22));
+        int p = Ui.dp(this, 22);
+        cadre.setPadding(p, p, p, p);
+        Ui.ajouter(cadre, Ui.texte(this, "🤝 Il te faut l’accord de " + qui, 20, Ui.TEXTE, true), 0);
+        Ui.ajouter(cadre, Ui.petit(this, "Tu veux :"), 16);
+        TextView quoi = Ui.ajouter(cadre, Ui.texte(this, texte.substring(0, 1).toUpperCase(Locale.FRANCE)
+                + texte.substring(1), 17, Ui.TEXTE, true), 4);
+        quoi.setBackground(Ui.fond(this, Ui.CARTE2, 14));
+        quoi.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10));
+        String lui = garants.size() == 1 ? qui : "ton garant";
+        Ui.ajouter(cadre, Ui.corps(this, "1. Un SMS part vers " + lui + " avec un lien.\n"
+                + "2. " + lui.substring(0, 1).toUpperCase(Locale.FRANCE) + lui.substring(1)
+                + " accepte ou refuse sur la page.\n"
+                + "3. Sa réponse revient par SMS : appuie sur le lien pour l’appliquer."), 16)
+                .setLineSpacing(0, 1.3f);
+        Ui.ajouter(cadre, Ui.texte(this, "Rien ne change tant que ce n’est pas accepté.", 13, Ui.ORANGE, false), 12);
+
+        AlertDialog dialogue = new AlertDialog.Builder(this).setView(cadre).create();
+        for (JSONObject g : garants) {
+            Ui.ajouter(cadre, Ui.boutonPlein(this, "✉ Écrire à " + g.optString("nom")), 12).setOnClickListener(v -> {
+                dialogue.dismiss();
+                Garant.demander(this, donnees, demande, g);
+                toast("Quand la réponse arrive par SMS, appuie sur son lien.");
+                if (apres != null) {
+                    apres.run();
+                }
+                rafraichir();
+            });
         }
-        new AlertDialog.Builder(this)
-                .setTitle("Accord d’un garant pour " + texte)
-                .setItems(noms, (d, i) -> {
-                    Garant.demander(this, donnees, demande, garants.get(i));
-                    toast("Demande envoyée : appuie sur le lien de sa réponse pour l’appliquer.");
-                    if (apres != null) {
-                        apres.run();
-                    }
-                    rafraichir();
-                })
-                .setNegativeButton("Annuler", null)
-                .show();
+        Ui.ajouter(cadre, Ui.boutonDiscret(this, "Annuler"), 8).setOnClickListener(v -> dialogue.dismiss());
+        dialogue.show();
+        if (dialogue.getWindow() != null) {
+            dialogue.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
+        }
     }
 
     /** Délai à attendre, ou un code de la personne de confiance pour passer tout de suite. */
