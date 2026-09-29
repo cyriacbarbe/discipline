@@ -282,7 +282,12 @@ public class BlocageAccessibilityService extends AccessibilityService {
         // Une session en cours : toutes les applis de sa limite sont libres jusqu'à la fin, à l'horloge.
         Limite session = moteur.sessionEnCours(paquet, maintenant);
         if (session != null) {
-            bulles(session, paquet, moteur.finSession(session, maintenant) - maintenant);
+            long restant = moteur.finSession(session, maintenant) - maintenant;
+            Long avant = restantsPrecedents.get(session.id);
+            bulles(session, paquet, restant);
+            if (avant != null && avant > 30_000L && restant <= 30_000L && restant > 0) {
+                afficherBulle("⏳ Session « " + session.nomAffiche(donnees) + " » : plus que 30 s", 4000);
+            }
             return;
         }
         List<Limite> limites = moteur.limitesPour(paquet, maintenant);
@@ -328,8 +333,9 @@ public class BlocageAccessibilityService extends AccessibilityService {
         String alerte = "🔒 " + Applications.nom(this, paquet) + " est bloquée par « " + l.nomAffiche(donnees)
                 + " » : " + raison + dispo;
         sortieDImage = null;
-        // Un site ou des Shorts : on revient en arrière dans la même appli, sans la quitter.
-        boolean partie = !paquet.equals(premierPlan);
+        // Un site ou des Shorts : on revient en arrière dans la même appli, sans la quitter —
+        // sauf si l'appli entière est bloquée : reculer ne ferait que recharger ses écrans.
+        boolean partie = !paquet.equals(premierPlan) && bloque(premierPlan, maintenant) == null;
         if (l.action == Limite.AUTRE_APPLI && !ecranObligatoire && l.appliAlternative != null) {
             Intent autre = getPackageManager().getLaunchIntentForPackage(l.appliAlternative);
             if (autre != null) {
@@ -339,12 +345,10 @@ public class BlocageAccessibilityService extends AccessibilityService {
                 return;
             }
         }
-        if (partie) {
-            performGlobalAction(GLOBAL_ACTION_BACK);
-        } else if (l.action != Limite.ECRAN && !ecranObligatoire) {
-            // L'écran de blocage se pose par-dessus l'appli : passer par l'accueil
-            // mettrait une vidéo en image dans l'image.
-            performGlobalAction(GLOBAL_ACTION_HOME);
+        // L'écran de blocage se pose par-dessus l'appli, sans retour ni accueil : passer par
+        // l'accueil mettrait une vidéo en image dans l'image, et un retour tomberait sur l'écran.
+        if (l.action != Limite.ECRAN && !ecranObligatoire) {
+            performGlobalAction(partie ? GLOBAL_ACTION_BACK : GLOBAL_ACTION_HOME);
         }
         if (l.action == Limite.ECRAN || ecranObligatoire) {
             Intent blocage = new Intent(this, BlocageActivity.class);
