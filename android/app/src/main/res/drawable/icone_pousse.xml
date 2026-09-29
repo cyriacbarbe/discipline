@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Logo : la pousse qui grandit (premier plan de l'icône adaptative, 108 × 108). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- réduit pour tenir dans la zone sûre (cercle de 66 au centre) -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.78"
+        android:scaleY="0.78">
+        <path
+            android:fillColor="#C8433C"
+            android:pathData="M54,14a40,40 0,1 1,0 80a40,40 0,1 1,0 -80z" />
+        <path
+            android:fillColor="#9E2F2A"
+            android:pathData="M34,76h40l-5,16H39z" />
+        <path
+            android:fillColor="#FFF3E6"
+            android:pathData="M35,70h38a4,4 0,0 1,4 4v1a4,4 0,0 1,-4 4H35a4,4 0,0 1,-4 -4v-1a4,4 0,0 1,4 -4z" />
+        <path
+            android:pathData="M54,70V44"
+            android:strokeColor="#FFF3E6"
+            android:strokeWidth="5"
+            android:strokeLineCap="round" />
+        <path
+            android:fillColor="#FFF3E6"
+            android:pathData="M54,52c-4,-12 -14,-16 -24,-14 2,10 10,16 24,14z" />
+        <path
+            android:fillColor="#FFD6A5"
+            android:pathData="M54,46c2,-14 12,-22 26,-20 -2,14 -12,22 -26,20z" />
+        <path
+            android:pathData="M58,42l14,-10"
+            android:strokeColor="#C8433C"
+            android:strokeWidth="2"
+            android:strokeLineCap="round" />
+        <path
+            android:fillColor="#FFD6A5"
+            android:pathData="M26,23a3,3 0,1 1,0 6a3,3 0,1 1,0 -6z" />
+        <path
+            android:fillColor="#FFF3E6"
+            android:pathData="M84,57.5a2.5,2.5 0,1 1,0 5a2.5,2.5 0,1 1,0 -5z" />
+        <path
+            android:fillColor="#FFF3E6"
+            android:pathData="M22,56a2,2 0,1 1,0 4a2,2 0,1 1,0 -4z" />
+    </group>
+</vector>
