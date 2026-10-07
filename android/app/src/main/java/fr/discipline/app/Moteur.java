@@ -168,14 +168,17 @@ final class Moteur {
         return null;
     }
 
-    /** Début du compte d'une condition : sa période, ou la dernière remise à zéro (ou réactivation) si plus récente. */
+    /** Début du compte d'une condition : sa période, ou la dernière remise à zéro si plus récente. */
     long debutCompte(Limite l, Condition c, long maintenant) {
         return Math.max(c.periode.debut(maintenant), depuis(l, c.periode.unite));
     }
 
-    /** Dernière remise à zéro de cette unité, ou réactivation de la limite : rien d'avant ne compte. */
+    /**
+     * Dernière remise à zéro de cette unité : rien d'avant ne compte. Couper puis
+     * réactiver la limite ne remet rien à zéro, le temps passé entre-temps compte.
+     */
     long depuis(Limite l, int unite) {
-        return Math.max(d.remise(unite), d.etat(l.id).optLong("activee"));
+        return d.remise(unite);
     }
 
     /** Ce qui est consommé du premier quota (temps, ouvertures, sessions), pour la jauge de l'accueil. */

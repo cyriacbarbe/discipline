@@ -179,9 +179,10 @@ fait avec ET.
 
 ## v1.5 — sessions, alerte nommée, veille
 
-- **Réactiver une limite la remet à zéro** : `Donnees.activer` note `activee`
-  dans l'état de la limite ; `Moteur.depuis` / `debutCompte` ne comptent rien
-  d'avant (temps, ouvertures, sessions, pauses, rallonges).
+- **Réactiver une limite la remet à zéro** — *annulé en v1.12* : réactiver
+  reprend le compte de la période (jour, semaine…), temps passé limite coupée
+  compris. Seule la remise à zéro des Paramètres (`Donnees.remise`) fait
+  repartir de 0 ; `Moteur.depuis` ne lit plus `activee`.
 - **Alerte qui nomme la limite** : « X est bloquée par « limite » : raison »,
   en bulle 5 s (aussi quand l'action ouvre une autre appli) ; l'écran de
   blocage le dit en orange.

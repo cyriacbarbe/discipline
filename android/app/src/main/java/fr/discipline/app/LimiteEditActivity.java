@@ -70,6 +70,13 @@ public class LimiteEditActivity extends Ecran {
                 ? "Aucune appli choisie" : l.nomAffiche(donnees), 18, Ui.TEXTE, true));
         Ui.ajouter(resume, Ui.corps(this, l.phrase()), 4);
 
+        LinearLayout nom = Ui.ajouter(c, Ui.carte(this), 8);
+        nom.addView(Ui.lien(this, "Nom", l.nom.isEmpty() ? "(automatique)" : l.nom,
+                v -> Choix.texte(this, "Nom de la limite", l.nom, l.nomAffiche(donnees), t -> {
+                    l.nom = t;
+                    rafraichir();
+                })));
+
         Ui.ajouter(c, Ui.section(this, "Sur quoi"), 16);
         LinearLayout general = Ui.ajouter(c, Ui.carte(this), 8);
         general.addView(Ui.lien(this, l.toutSauf ? "Applis épargnées" : "Applis et groupes",
@@ -106,13 +113,7 @@ public class LimiteEditActivity extends Ecran {
                     rafraichir();
                 });
         if (plus) {
-            LinearLayout nom = Ui.ajouter(c, Ui.carte(this), 12);
-            nom.addView(Ui.lien(this, "Nom", l.nom.isEmpty() ? "(automatique)" : l.nom,
-                    v -> Choix.texte(this, "Nom de la limite", l.nom, l.nomAffiche(donnees), t -> {
-                        l.nom = t;
-                        rafraichir();
-                    })));
-            sites(nom);
+            sites(Ui.ajouter(c, Ui.carte(this), 12));
             Ui.ajouter(c, Ui.boutonDiscret(this, "＋ Combiner avec une autre règle"), 10).setOnClickListener(v -> combiner());
             datesExclues(c);
             action(c);

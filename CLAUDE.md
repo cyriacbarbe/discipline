@@ -62,7 +62,7 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
   écran de blocage détaillé, remise à zéro, réglage du widget.
 - v1.4 : widget réglé widget par widget (contenus, profil, concentration choisie,
   appuis, fond, opacité, taille, mode compact).
-- v1.5 : réactiver une limite la remet à zéro, alerte qui nomme la limite, sessions
+- v1.5 : alerte qui nomme la limite, sessions
   = pauses d’horloge par-dessus les autres limites, rien ne compte écran verrouillé.
 - v1.6 : garants qui valident chaque assouplissement par SMS + page web signée
   (`Garant`, `site/public/g/`, Vercel `discipline-garant.vercel.app`).
@@ -71,3 +71,4 @@ limitées par jour, un déblocage par puce NFC. Java natif, même stack que
 - v1.9 : le décompte des sessions vient de toutes les règles « Sessions » (ex. Toilettes) qui libèrent les mêmes applis, pas seulement de la règle évaluée.
 - v1.10 : page d’accueil à chaque ouverture d’une appli limitée (temps pris, reste, Ouvrir / session / fermer, sans compter), écran de blocage « dont X sur l’appli et Y sur les autres » hors sessions, détail dépliable « Tes passages ».
 - v1.11 : le temps en session des parties d’appli (Reels…) et des sites est enfin décompté (`Cibles.communes`), détail par appli qui les range sous leur appli.
+- v1.12 : réactiver une limite reprend le compte de la période (le temps passé limite coupée compte), nom de la limite modifiable en haut de l’écran d’édition.

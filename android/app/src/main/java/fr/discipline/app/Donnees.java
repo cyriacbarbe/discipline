@@ -501,15 +501,8 @@ final class Donnees {
         return e;
     }
 
-    /** Réactiver une limite la fait repartir de zéro : ce qui a été consommé avant ne compte plus. */
+    /** Réactiver une limite reprend le compte de sa période : ce qui a été consommé pendant qu'elle était coupée compte. */
     void activer(Limite l, boolean oui) {
-        if (oui && !l.active) {
-            try {
-                etat(l.id).put("activee", Horloge.maintenant());
-            } catch (Exception ignore) {
-                // clé non nulle
-            }
-        }
         l.active = oui;
     }
 
